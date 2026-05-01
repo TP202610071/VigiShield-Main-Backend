@@ -1,0 +1,6 @@
+@VigiShield_Main_Backend_HostAddress = http://localhost:5020
+
+GET {{VigiShield_Main_Backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
