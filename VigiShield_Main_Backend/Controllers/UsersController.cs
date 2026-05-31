@@ -1,0 +1,49 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using VigiShield.Application.DTOs.Auth;
+using VigiShield.Application.Services;
+using VigiShield.Common.Extensions;
+
+namespace VigiShield.Controllers;
+
+[ApiController]
+[Route("api/users")]
+[Authorize]
+public class UsersController : ControllerBase
+{
+    private readonly AuthService _authService;
+
+    public UsersController(AuthService authService) => _authService = authService;
+
+    [HttpGet]
+    public async Task<ActionResult<List<SecondaryUserDto>>> GetSecondaryUsers()
+    {
+        return Ok(await _authService.GetSecondaryUsersAsync(User.GetHouseholdId()));
+    }
+
+    [HttpPost("invite")]
+    public async Task<ActionResult<InviteUserResponse>> InviteUser([FromBody] InviteUserRequest request)
+    {
+        if (!User.IsPrimaryResident())
+            return Forbid();
+
+        return Ok(await _authService.InviteUserAsync(User.GetHouseholdId(), request));
+    }
+
+    [HttpDelete("{userId:guid}/revoke")]
+    public async Task<IActionResult> RevokeUser(Guid userId)
+    {
+        if (!User.IsPrimaryResident())
+            return Forbid();
+
+        await _authService.RevokeUserAsync(User.GetHouseholdId(), userId);
+        return NoContent();
+    }
+
+    [HttpPost("accept-invitation")]
+    [AllowAnonymous]
+    public async Task<ActionResult<AuthResponse>> AcceptInvitation([FromBody] AcceptInvitationRequest request)
+    {
+        return Ok(await _authService.AcceptInvitationAsync(request));
+    }
+}
