@@ -22,6 +22,8 @@ public class EventService
         {
             Id = Guid.NewGuid(),
             HouseholdId = request.HouseholdId,
+            CameraId = request.CameraId,
+            CameraName = request.CameraName,
             EventType = request.EventType,
             ConfidenceScore = request.ConfidenceScore,
             ImageCapturePath = request.ImageCapturePath,
@@ -98,7 +100,7 @@ public class EventService
     }
 
     private static EventDto ToDto(SecurityEvent ev) => new(
-        ev.Id, ev.HouseholdId, ev.EventType.ToString(),
+        ev.Id, ev.HouseholdId, ev.CameraId, ev.CameraName, ev.EventType.ToString(),
         ev.ConfidenceScore, ev.ImageCapturePath, ev.VideoClipPath,
         ev.PersonName, ev.RiskLevel.ToString(), ev.IsNighttime, ev.CreatedAt);
 }

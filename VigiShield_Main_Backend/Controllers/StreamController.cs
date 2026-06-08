@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using VigiShield.Application.DTOs.Stream;
 using VigiShield.Application.Services;
 using VigiShield.Common.Extensions;
+using VigiShield.Infrastructure.Services;
 
 namespace VigiShield.Controllers;
 
@@ -11,11 +12,19 @@ namespace VigiShield.Controllers;
 public class StreamController : ControllerBase
 {
     private readonly CameraService _cameraService;
+    private readonly FaceService _faceService;
+    private readonly CameraControlService _cameraControl;
     private readonly IConfiguration _config;
 
-    public StreamController(CameraService cameraService, IConfiguration config)
+    public StreamController(
+        CameraService cameraService,
+        FaceService faceService,
+        CameraControlService cameraControl,
+        IConfiguration config)
     {
         _cameraService = cameraService;
+        _faceService = faceService;
+        _cameraControl = cameraControl;
         _config = config;
     }
 
@@ -62,6 +71,25 @@ public class StreamController : ControllerBase
         return NoContent();
     }
 
+    // ── Live camera image/video controls (hi3510 CGI) ─────────────────────────
+
+    /// <summary>Read the camera's current image/video settings (brightness, etc.).</summary>
+    [HttpGet("cameras/{cameraId:guid}/control")]
+    [Authorize]
+    public async Task<IActionResult> GetCameraControls(Guid cameraId)
+        => Ok(await _cameraControl.GetSettingsAsync(User.GetHouseholdId(), cameraId));
+
+    /// <summary>Apply image/video settings to the camera. Primary residents only.</summary>
+    [HttpPut("cameras/{cameraId:guid}/control")]
+    [Authorize]
+    public async Task<IActionResult> UpdateCameraControls(
+        Guid cameraId, [FromBody] Dictionary<string, string> settings)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        await _cameraControl.ApplySettingsAsync(User.GetHouseholdId(), cameraId, settings);
+        return NoContent();
+    }
+
     // ── Backwards-compat: default camera ─────────────────────────────────────
 
     /// <summary>Returns HLS URL of the default camera (Flutter stream tab).</summary>
@@ -75,7 +103,7 @@ public class StreamController : ControllerBase
 
     // ── Python AI Backend ─────────────────────────────────────────────────────
 
-    /// <summary>Returns RTSP config for all cameras (Python AI service).</summary>
+    /// <summary>Returns RTSP config for all cameras of a household (Python AI service).</summary>
     [HttpGet("ai-config")]
     public async Task<IActionResult> GetAiConfig([FromQuery] Guid householdId)
     {
@@ -85,5 +113,29 @@ public class StreamController : ControllerBase
 
         var cameras = await _cameraService.GetAiConfigAsync(householdId);
         return Ok(cameras);
+    }
+
+    /// <summary>Returns RTSP config for ALL cameras across ALL households (Python AI service).</summary>
+    [HttpGet("ai-config/all")]
+    public async Task<IActionResult> GetAllAiConfig()
+    {
+        var apiKey = Request.Headers["X-Api-Key"].FirstOrDefault();
+        if (apiKey != _config["InternalApi:Key"])
+            return Unauthorized(new { error = "API key inválida" });
+
+        var cameras = await _cameraService.GetAllAiConfigAsync();
+        return Ok(cameras);
+    }
+
+    /// <summary>Returns authorized faces for a household (Python AI service for DeepFace).</summary>
+    [HttpGet("ai-faces")]
+    public async Task<IActionResult> GetAiFaces([FromQuery] Guid householdId)
+    {
+        var apiKey = Request.Headers["X-Api-Key"].FirstOrDefault();
+        if (apiKey != _config["InternalApi:Key"])
+            return Unauthorized(new { error = "API key inválida" });
+
+        var faces = await _faceService.GetFacesAsync(householdId);
+        return Ok(faces);
     }
 }

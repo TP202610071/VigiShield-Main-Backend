@@ -126,6 +126,24 @@ public class MediaMtxService
         sb.AppendLine("api: yes");
         sb.AppendLine($"apiAddress: :{_config["MediaMtx:ApiPort"] ?? "9997"}");
         sb.AppendLine();
+        sb.AppendLine("# Resilience: tolerate a momentarily slow reader (a phone over WiFi) instead of");
+        sb.AppendLine("# dropping it with 'reader is too slow' → i/o timeout (an ~8s freeze). Bigger");
+        sb.AppendLine("# send queue + longer write timeout. writeQueueSize must be a power of two.");
+        sb.AppendLine("writeQueueSize: 4096");
+        sb.AppendLine("writeTimeout: 20s");
+        sb.AppendLine();
+        sb.AppendLine("# HLS — lowLatency variant.");
+        sb.AppendLine("# The camera's keyframe interval is ~8s (firmware ignores the gop setting),");
+        sb.AppendLine("# so plain segments would be 8s → ~20s latency. lowLatency delivers 200ms");
+        sb.AppendLine("# PARTS continuously, keeping the player ~1-2s behind live regardless.");
+        sb.AppendLine("# MediaMTX propagates the playback session via a ?session= query parameter in");
+        sb.AppendLine("# the manifest URLs, so cookie-less players (ExoPlayer/Android) work without a");
+        sb.AppendLine("# cookie jar — verified end-to-end (master, playlist, parts all 200, no cookie).");
+        sb.AppendLine("hlsVariant: lowLatency");
+        sb.AppendLine("hlsSegmentCount: 7");
+        sb.AppendLine("hlsSegmentDuration: 1s");
+        sb.AppendLine("hlsPartDuration: 200ms");
+        sb.AppendLine();
         sb.AppendLine("paths:");
 
         foreach (var (key, url) in cameras)

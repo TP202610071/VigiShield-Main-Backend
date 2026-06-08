@@ -55,6 +55,7 @@ builder.Services.AddScoped<ConfigService>();
 builder.Services.AddScoped<SystemService>();
 builder.Services.AddScoped<MediaMtxService>();
 builder.Services.AddScoped<CameraService>();
+builder.Services.AddScoped<CameraControlService>();
 
 // Sync MediaMTX paths on startup (re-registers DirectRtsp cameras)
 builder.Services.AddHostedService<MediaMtxStartupSync>();

@@ -45,6 +45,11 @@ public class AppDbContext : DbContext
              .WithMany(h => h.Events)
              .HasForeignKey(ev => ev.HouseholdId)
              .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(ev => ev.Camera)
+             .WithMany()
+             .HasForeignKey(ev => ev.CameraId)
+             .OnDelete(DeleteBehavior.SetNull)
+             .IsRequired(false);
         });
 
         modelBuilder.Entity<AuthorizedFace>(e =>

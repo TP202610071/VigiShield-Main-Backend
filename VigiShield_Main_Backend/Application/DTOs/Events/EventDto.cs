@@ -3,6 +3,8 @@ namespace VigiShield.Application.DTOs.Events;
 public record EventDto(
     Guid Id,
     Guid HouseholdId,
+    Guid? CameraId,
+    string? CameraName,
     string EventType,
     float? ConfidenceScore,
     string? ImageCapturePath,
