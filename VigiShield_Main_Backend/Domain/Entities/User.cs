@@ -12,6 +12,8 @@ public class User
     public Guid HouseholdId { get; set; }
     public Household Household { get; set; } = null!;
     public string? WhatsAppNumber { get; set; }
+    /// <summary>Relative path of the uploaded avatar, e.g. "/avatars/{id}.jpg". Null = use initials.</summary>
+    public string? AvatarPath { get; set; }
     public string? FcmToken { get; set; }
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }

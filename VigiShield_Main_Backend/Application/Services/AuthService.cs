@@ -222,5 +222,55 @@ public class AuthService
 
     private static UserProfileDto ToProfileDto(User user) => new(
         user.Id, user.Email, user.Name, user.Role.ToString(),
-        user.HouseholdId, user.WhatsAppNumber, user.CreatedAt);
+        user.HouseholdId, user.WhatsAppNumber, user.AvatarPath, user.CreatedAt);
+
+    // ── Avatar ────────────────────────────────────────────────────────────────
+
+    public async Task<UserProfileDto> SetAvatarAsync(Guid userId, string relativePath)
+    {
+        var user = await _db.Users.FindAsync(userId)
+            ?? throw AppException.NotFound("Usuario no encontrado");
+        user.AvatarPath = relativePath;
+        await _db.SaveChangesAsync();
+        return ToProfileDto(user);
+    }
+
+    // ── Admin management (developer accounts) ───────────────────────────────────
+
+    public async Task<List<AdminUserDto>> GetAdminsAsync()
+    {
+        return await _db.Users
+            .Where(u => u.Role == UserRole.Admin)
+            .OrderBy(u => u.CreatedAt)
+            .Select(u => new AdminUserDto(u.Id, u.Email, u.Name, u.CreatedAt))
+            .ToListAsync();
+    }
+
+    /// <summary>Promote an existing user (by email) to Admin.</summary>
+    public async Task<AdminUserDto> AddAdminAsync(string email)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLower())
+            ?? throw AppException.NotFound("No existe un usuario con ese correo. Debe registrarse primero.");
+
+        if (user.Role != UserRole.Admin)
+        {
+            user.Role = UserRole.Admin;
+            await _db.SaveChangesAsync();
+        }
+        return new AdminUserDto(user.Id, user.Email, user.Name, user.CreatedAt);
+    }
+
+    /// <summary>Demote an Admin back to Primary. Refuses to remove the last admin.</summary>
+    public async Task RemoveAdminAsync(Guid targetUserId)
+    {
+        var admins = await _db.Users.Where(u => u.Role == UserRole.Admin).ToListAsync();
+        var target = admins.FirstOrDefault(u => u.Id == targetUserId)
+            ?? throw AppException.NotFound("Administrador no encontrado");
+
+        if (admins.Count <= 1)
+            throw AppException.Forbidden("No se puede quitar al último administrador");
+
+        target.Role = UserRole.Primary;
+        await _db.SaveChangesAsync();
+    }
 }

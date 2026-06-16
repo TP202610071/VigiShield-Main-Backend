@@ -79,6 +79,16 @@ public class EventService
         return ToDto(ev);
     }
 
+    /// <summary>Attach a recorded clip URL to an event (called by the AI service).</summary>
+    public async Task AttachClipAsync(Guid eventId, string videoClipPath)
+    {
+        var ev = await _db.Events.FirstOrDefaultAsync(e => e.Id == eventId)
+            ?? throw AppException.NotFound("Evento no encontrado");
+
+        ev.VideoClipPath = videoClipPath;
+        await _db.SaveChangesAsync();
+    }
+
     public async Task DeleteEventAsync(Guid householdId, Guid eventId)
     {
         var ev = await _db.Events

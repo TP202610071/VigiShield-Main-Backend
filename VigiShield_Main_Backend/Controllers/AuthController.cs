@@ -11,8 +11,13 @@ namespace VigiShield.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(AuthService authService) => _authService = authService;
+    public AuthController(AuthService authService, IWebHostEnvironment env)
+    {
+        _authService = authService;
+        _env = env;
+    }
 
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
@@ -39,6 +44,38 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<UserProfileDto>> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
         return Ok(await _authService.UpdateProfileAsync(User.GetUserId(), request));
+    }
+
+    [HttpPost("avatar")]
+    [Authorize]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<UserProfileDto>> UploadAvatar(IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "Archivo de imagen vacío" });
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { error = "La imagen supera el límite de 5 MB" });
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp")) ext = ".jpg";
+
+        var userId = User.GetUserId();
+        var dir = Path.Combine(_env.ContentRootPath, "wwwroot", "avatars");
+        Directory.CreateDirectory(dir);
+
+        // Replace any previous avatar for this user (possibly a different extension).
+        foreach (var old in Directory.GetFiles(dir, userId + ".*"))
+        {
+            try { System.IO.File.Delete(old); } catch { /* ignore */ }
+        }
+
+        var fileName = $"{userId}{ext}";
+        await using (var stream = System.IO.File.Create(Path.Combine(dir, fileName)))
+            await file.CopyToAsync(stream);
+
+        // Cache-bust so the app reloads the new picture even though the name is stable.
+        var relative = $"/avatars/{fileName}?v={DateTime.UtcNow.Ticks}";
+        return Ok(await _authService.SetAvatarAsync(userId, relative));
     }
 
     [HttpPut("change-password")]

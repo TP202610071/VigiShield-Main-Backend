@@ -31,6 +31,18 @@ public class EventsController : ControllerBase
         return CreatedAtAction(nameof(GetEvent), new { id = result.Id }, result);
     }
 
+    /// <summary>Internal endpoint — the Python AI service attaches a recorded clip URL.</summary>
+    [HttpPost("{id:guid}/clip")]
+    public async Task<IActionResult> AttachClip(Guid id, [FromBody] AttachClipRequest request)
+    {
+        var apiKey = Request.Headers["X-Api-Key"].FirstOrDefault();
+        if (apiKey != _config["InternalApi:Key"])
+            return Unauthorized(new { error = "API key inválida" });
+
+        await _eventService.AttachClipAsync(id, request.VideoClipPath);
+        return NoContent();
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<EventListResponse>> GetEvents(

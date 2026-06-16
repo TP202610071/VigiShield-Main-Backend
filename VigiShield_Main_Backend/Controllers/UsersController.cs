@@ -46,4 +46,28 @@ public class UsersController : ControllerBase
     {
         return Ok(await _authService.AcceptInvitationAsync(request));
     }
+
+    // ── Developer/administrator management (Admin role only) ───────────────────
+
+    [HttpGet("admins")]
+    public async Task<ActionResult<List<AdminUserDto>>> GetAdmins()
+    {
+        if (!User.IsAdmin()) return Forbid();
+        return Ok(await _authService.GetAdminsAsync());
+    }
+
+    [HttpPost("admins")]
+    public async Task<ActionResult<AdminUserDto>> AddAdmin([FromBody] AddAdminRequest request)
+    {
+        if (!User.IsAdmin()) return Forbid();
+        return Ok(await _authService.AddAdminAsync(request.Email));
+    }
+
+    [HttpDelete("admins/{userId:guid}")]
+    public async Task<IActionResult> RemoveAdmin(Guid userId)
+    {
+        if (!User.IsAdmin()) return Forbid();
+        await _authService.RemoveAdminAsync(userId);
+        return NoContent();
+    }
 }

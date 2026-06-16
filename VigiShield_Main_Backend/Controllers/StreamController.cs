@@ -14,17 +14,20 @@ public class StreamController : ControllerBase
     private readonly CameraService _cameraService;
     private readonly FaceService _faceService;
     private readonly CameraControlService _cameraControl;
+    private readonly ConfigService _configService;
     private readonly IConfiguration _config;
 
     public StreamController(
         CameraService cameraService,
         FaceService faceService,
         CameraControlService cameraControl,
+        ConfigService configService,
         IConfiguration config)
     {
         _cameraService = cameraService;
         _faceService = faceService;
         _cameraControl = cameraControl;
+        _configService = configService;
         _config = config;
     }
 
@@ -125,6 +128,17 @@ public class StreamController : ControllerBase
 
         var cameras = await _cameraService.GetAllAiConfigAsync();
         return Ok(cameras);
+    }
+
+    /// <summary>Returns the household's alert toggle config (Python AI service — suppresses disabled event types).</summary>
+    [HttpGet("ai-alert-config")]
+    public async Task<IActionResult> GetAiAlertConfig([FromQuery] Guid householdId)
+    {
+        var apiKey = Request.Headers["X-Api-Key"].FirstOrDefault();
+        if (apiKey != _config["InternalApi:Key"])
+            return Unauthorized(new { error = "API key inválida" });
+
+        return Ok(await _configService.GetAlertConfigAsync(householdId));
     }
 
     /// <summary>Returns authorized faces for a household (Python AI service for DeepFace).</summary>

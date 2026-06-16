@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using VigiShield.Application.Services;
@@ -66,6 +67,7 @@ builder.Services.AddScoped<SystemService>();
 builder.Services.AddScoped<MediaMtxService>();
 builder.Services.AddScoped<CameraService>();
 builder.Services.AddScoped<CameraControlService>();
+builder.Services.AddScoped<R2Service>();
 
 // Sync MediaMTX paths on startup (re-registers DirectRtsp cameras)
 builder.Services.AddHostedService<MediaMtxStartupSync>();
@@ -81,6 +83,11 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Ensure the avatar upload directory exists and is served regardless of whether
+// a wwwroot folder shipped with the publish (avatars are user-uploaded at runtime).
+var webRoot = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRoot, "avatars"));
+
 app.UseForwardedHeaders();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -91,7 +98,10 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference(opts => opts.WithTitle("VigiShield API"));
 }
 
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(webRoot),
+});
 app.UseCors();
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseAuthentication();

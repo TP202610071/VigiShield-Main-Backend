@@ -7,5 +7,6 @@ public record UserProfileDto(
     string Role,
     Guid HouseholdId,
     string? WhatsAppNumber,
+    string? AvatarPath,
     DateTime CreatedAt
 );

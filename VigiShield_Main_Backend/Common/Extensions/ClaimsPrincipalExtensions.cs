@@ -10,6 +10,10 @@ public static class ClaimsPrincipalExtensions
     public static Guid GetHouseholdId(this ClaimsPrincipal user)
         => Guid.Parse(user.FindFirstValue("householdId")!);
 
+    // Admin accounts inherit every Primary-resident power.
     public static bool IsPrimaryResident(this ClaimsPrincipal user)
-        => user.FindFirstValue(ClaimTypes.Role) == "Primary";
+        => user.FindFirstValue(ClaimTypes.Role) is "Primary" or "Admin";
+
+    public static bool IsAdmin(this ClaimsPrincipal user)
+        => user.FindFirstValue(ClaimTypes.Role) == "Admin";
 }
