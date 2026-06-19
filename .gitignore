@@ -361,3 +361,12 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ── VigiShield: secrets & runtime artifacts (NEVER commit) ──────────────────
+# Production secrets are injected at runtime via EnvironmentFile, not this file.
+appsettings.Production.json
+appsettings.*.Local.json
+**/wwwroot/avatars/
+# Publish output / deployment bundles
+publish_linux/
+*.tar.gz
