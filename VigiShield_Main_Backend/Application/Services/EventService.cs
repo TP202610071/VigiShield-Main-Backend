@@ -4,14 +4,20 @@ using VigiShield.Common.Exceptions;
 using VigiShield.Domain.Entities;
 using VigiShield.Domain.Enums;
 using VigiShield.Infrastructure.Persistence;
+using VigiShield.Infrastructure.Services;
 
 namespace VigiShield.Application.Services;
 
 public class EventService
 {
     private readonly AppDbContext _db;
+    private readonly WhatsAppService _whatsApp;
 
-    public EventService(AppDbContext db) => _db = db;
+    public EventService(AppDbContext db, WhatsAppService whatsApp)
+    {
+        _db = db;
+        _whatsApp = whatsApp;
+    }
 
     public async Task<EventDto> IngestEventAsync(IngestEventRequest request)
     {
@@ -38,10 +44,58 @@ public class EventService
         await _db.SaveChangesAsync();
 
         // TODO: Trigger FCM push notification to household devices
-        // TODO: Trigger WhatsApp alert if configured
+
+        // WhatsApp alert for anything Medium or worse (skips FaceRecognized/Low).
+        if (_whatsApp.IsConfigured && ev.RiskLevel >= RiskLevel.Medium)
+        {
+            var numbers = await _db.Users
+                .Where(u => u.HouseholdId == ev.HouseholdId && u.WhatsAppNumber != null && u.WhatsAppNumber != "")
+                .Select(u => u.WhatsAppNumber!)
+                .ToListAsync();
+            if (numbers.Count > 0)
+            {
+                var label = SpanishLabel(ev.EventType);
+                var camera = ev.CameraName ?? "Cámara";
+                var when = LocalTime(ev.CreatedAt);
+                // Fire-and-forget: don't block the AI ingest call on Meta's API.
+                _ = _whatsApp.SendEventAlertAsync(numbers, label, camera, when);
+            }
+        }
 
         return ToDto(ev);
     }
+
+    private static string LocalTime(DateTime utc)
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Lima");
+            return TimeZoneInfo.ConvertTimeFromUtc(utc, tz).ToString("dd/MM HH:mm");
+        }
+        catch
+        {
+            return utc.ToString("dd/MM HH:mm") + " UTC";
+        }
+    }
+
+    private static string SpanishLabel(EventType t) => t switch
+    {
+        EventType.UnknownFace => "Persona desconocida",
+        EventType.RecurrentUnknownFace => "Persona desconocida recurrente",
+        EventType.LowConfidenceFace => "Rostro no confirmado",
+        EventType.FaceRecognized => "Persona reconocida",
+        EventType.WeaponDetected => "Arma detectada",
+        EventType.Tailgating => "Merodeador detectado",
+        EventType.ForcedAccessAttempt => "Intento de acceso forzado",
+        EventType.Climbing => "Escalamiento detectado",
+        EventType.PhysicalAggression => "Agresión física",
+        EventType.Robbery => "Robo",
+        EventType.Burglary => "Allanamiento",
+        EventType.Assault => "Asalto",
+        EventType.Vandalism => "Vandalismo",
+        EventType.Stealing => "Hurto",
+        _ => t.ToString(),
+    };
 
     public async Task<EventListResponse> GetEventsAsync(
         Guid householdId, string? type, DateTime? from, DateTime? to, int page, int pageSize)
