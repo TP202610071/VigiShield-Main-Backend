@@ -12,17 +12,23 @@ public class EventService
 {
     private readonly AppDbContext _db;
     private readonly WhatsAppService _whatsApp;
+    private readonly FcmService _fcm;
 
-    public EventService(AppDbContext db, WhatsAppService whatsApp)
+    public EventService(AppDbContext db, WhatsAppService whatsApp, FcmService fcm)
     {
         _db = db;
         _whatsApp = whatsApp;
+        _fcm = fcm;
     }
 
-    public async Task<EventDto> IngestEventAsync(IngestEventRequest request)
+    public async Task<EventDto?> IngestEventAsync(IngestEventRequest request)
     {
-        if (!await _db.Households.AnyAsync(h => h.Id == request.HouseholdId))
-            throw AppException.NotFound("Hogar no encontrado");
+        var household = await _db.Households.FirstOrDefaultAsync(h => h.Id == request.HouseholdId)
+            ?? throw AppException.NotFound("Hogar no encontrado");
+
+        // Monitoring paused → suppress the event entirely (no record, no alert).
+        if (household.IsMonitoringPaused)
+            return null;
 
         var ev = new SecurityEvent
         {
@@ -43,7 +49,21 @@ public class EventService
         _db.Events.Add(ev);
         await _db.SaveChangesAsync();
 
-        // TODO: Trigger FCM push notification to household devices
+        // Push notification (FCM) to household devices for Medium+ events.
+        if (_fcm.IsConfigured && ev.RiskLevel >= RiskLevel.Medium)
+        {
+            var tokens = await _db.Users
+                .Where(u => u.HouseholdId == ev.HouseholdId && u.FcmToken != null && u.FcmToken != "")
+                .Select(u => u.FcmToken!)
+                .ToListAsync();
+            if (tokens.Count > 0)
+            {
+                var (date, time) = WhatsAppService.LocalParts(ev.CreatedAt);
+                _ = _fcm.SendAsync(tokens,
+                    "VigiShield", $"{SpanishLabel(ev.EventType)} · {ev.CameraName ?? "Cámara"} · {time}",
+                    new Dictionary<string, string> { ["eventId"] = ev.Id.ToString(), ["type"] = ev.EventType.ToString() });
+            }
+        }
 
         // WhatsApp alert for anything Medium or worse (skips FaceRecognized/Low).
         if (_whatsApp.IsConfigured && ev.RiskLevel >= RiskLevel.Medium)
@@ -54,29 +74,27 @@ public class EventService
                 .ToListAsync();
             if (numbers.Count > 0)
             {
-                var label = SpanishLabel(ev.EventType);
                 var camera = ev.CameraName ?? "Cámara";
-                var when = LocalTime(ev.CreatedAt);
+                var (date, time) = WhatsAppService.LocalParts(ev.CreatedAt);
                 // Fire-and-forget: don't block the AI ingest call on Meta's API.
-                _ = _whatsApp.SendEventAlertAsync(numbers, label, camera, when);
+                // Unauthorized-person events use the dedicated template; the rest
+                // use the generic one (with the event label as the first param).
+                if (ev.EventType is EventType.UnknownFace or EventType.RecurrentUnknownFace)
+                    _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_alert", camera, date, time);
+                else
+                    _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_general_alert",
+                        SpanishLabel(ev.EventType), camera, date, time);
             }
         }
 
         return ToDto(ev);
     }
 
-    private static string LocalTime(DateTime utc)
-    {
-        try
-        {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Lima");
-            return TimeZoneInfo.ConvertTimeFromUtc(utc, tz).ToString("dd/MM HH:mm");
-        }
-        catch
-        {
-            return utc.ToString("dd/MM HH:mm") + " UTC";
-        }
-    }
+    /// <summary>WhatsApp numbers of household members (for alerts).</summary>
+    public Task<List<string>> HouseholdWhatsAppNumbersAsync(Guid householdId) => _db.Users
+        .Where(u => u.HouseholdId == householdId && u.WhatsAppNumber != null && u.WhatsAppNumber != "")
+        .Select(u => u.WhatsAppNumber!)
+        .ToListAsync();
 
     private static string SpanishLabel(EventType t) => t switch
     {

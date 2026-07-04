@@ -70,6 +70,7 @@ builder.Services.AddScoped<CameraControlService>();
 builder.Services.AddScoped<R2Service>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<WhatsAppService>();
+builder.Services.AddScoped<FcmService>();
 
 // Sync MediaMTX paths on startup (re-registers DirectRtsp cameras)
 builder.Services.AddHostedService<MediaMtxStartupSync>();

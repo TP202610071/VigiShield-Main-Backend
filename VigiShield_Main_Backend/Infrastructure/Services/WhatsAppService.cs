@@ -1,20 +1,24 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
 namespace VigiShield.Infrastructure.Services;
 
 /// <summary>
-/// Sends event alerts via the WhatsApp Cloud API (Meta Graph API).
+/// Sends notifications via the WhatsApp Cloud API (Meta Graph API) using approved
+/// message templates. No-op until WhatsApp:AccessToken + WhatsApp:PhoneNumberId
+/// are configured (via the env file), so it is safe to leave disabled.
 ///
-/// Business-initiated messages must use an approved message template. Create one
-/// named per WhatsApp:TemplateName with 3 body variables — {{1}} event, {{2}}
-/// camera, {{3}} time — e.g. "🚨 VigiShield: {{1}} en {{2}} ({{3}})".
-///
-/// No-op until WhatsApp:AccessToken + WhatsApp:PhoneNumberId are configured, so
-/// it is safe to leave disabled.
+/// Templates used (create + get approved in Meta, language es):
+///   vigishield_alert            {{1}} camera {{2}} date {{3}} time   (unauthorized person)
+///   vigishield_general_alert    {{1}} event  {{2}} camera {{3}} date {{4}} time
+///   vigishield_monitoring_paused {{1}} date {{2}} time
+///   vigishield_new_household_member {{1}} date {{2}} time {{3}} member
 /// </summary>
 public class WhatsAppService
 {
+    private static readonly TimeZoneInfo Tz = ResolveTz();
+
     private readonly IHttpClientFactory _httpFactory;
     private readonly IConfiguration _cfg;
     private readonly ILogger<WhatsAppService> _log;
@@ -30,21 +34,30 @@ public class WhatsAppService
         !string.IsNullOrWhiteSpace(_cfg["WhatsApp:AccessToken"]) &&
         !string.IsNullOrWhiteSpace(_cfg["WhatsApp:PhoneNumberId"]);
 
-    /// <summary>Send an event alert template to each recipient (fire-and-forget friendly).</summary>
-    public async Task SendEventAlertAsync(
-        IReadOnlyCollection<string> toNumbers, string eventLabel, string cameraName, string timeText)
+    /// <summary>Local date ("dd/MM/yyyy") + 12-hour time ("hh:mm tt") for a UTC instant.</summary>
+    public static (string date, string time) LocalParts(DateTime utc)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Tz);
+        return (local.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+                local.ToString("hh:mm tt", CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>Send a template (with ordered body parameters) to each recipient. Fire-and-forget friendly.</summary>
+    public async Task SendTemplateAsync(
+        IReadOnlyCollection<string> toNumbers, string templateName, params string[] bodyParams)
     {
         if (!IsConfigured || toNumbers.Count == 0) return;
 
         var version = _cfg["WhatsApp:ApiVersion"] ?? "v21.0";
         var phoneId = _cfg["WhatsApp:PhoneNumberId"];
         var token = _cfg["WhatsApp:AccessToken"];
-        var template = _cfg["WhatsApp:TemplateName"] ?? "vigishield_alert";
         var lang = _cfg["WhatsApp:TemplateLang"] ?? "es";
         var url = $"https://graph.facebook.com/{version}/{phoneId}/messages";
 
         var client = _httpFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var parameters = bodyParams.Select(p => new { type = "text", text = p }).ToArray();
 
         foreach (var raw in toNumbers)
         {
@@ -58,21 +71,11 @@ public class WhatsAppService
                 type = "template",
                 template = new
                 {
-                    name = template,
+                    name = templateName,
                     language = new { code = lang },
-                    components = new[]
-                    {
-                        new
-                        {
-                            type = "body",
-                            parameters = new[]
-                            {
-                                new { type = "text", text = eventLabel },
-                                new { type = "text", text = cameraName },
-                                new { type = "text", text = timeText },
-                            }
-                        }
-                    }
+                    components = parameters.Length == 0
+                        ? Array.Empty<object>()
+                        : new object[] { new { type = "body", parameters } }
                 }
             };
 
@@ -82,12 +85,12 @@ public class WhatsAppService
                 if (!resp.IsSuccessStatusCode)
                 {
                     var err = await resp.Content.ReadAsStringAsync();
-                    _log.LogWarning("WhatsApp send to {To} failed: {Status} {Body}",
-                        Mask(to), (int)resp.StatusCode, err);
+                    _log.LogWarning("WhatsApp '{Template}' to {To} failed: {Status} {Body}",
+                        templateName, Mask(to), (int)resp.StatusCode, err);
                 }
                 else
                 {
-                    _log.LogInformation("WhatsApp alert sent to {To}", Mask(to));
+                    _log.LogInformation("WhatsApp '{Template}' sent to {To}", templateName, Mask(to));
                 }
             }
             catch (Exception e)
@@ -106,4 +109,10 @@ public class WhatsAppService
 
     private static string Mask(string number) =>
         number.Length <= 4 ? "****" : new string('*', number.Length - 4) + number[^4..];
+
+    private static TimeZoneInfo ResolveTz()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("America/Lima"); }
+        catch { return TimeZoneInfo.Utc; }
+    }
 }

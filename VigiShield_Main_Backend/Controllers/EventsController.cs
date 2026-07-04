@@ -28,6 +28,8 @@ public class EventsController : ControllerBase
             return Unauthorized(new { error = "API key inválida" });
 
         var result = await _eventService.IngestEventAsync(request);
+        if (result is null)
+            return NoContent(); // monitoring is paused for this household — event suppressed
         return CreatedAtAction(nameof(GetEvent), new { id = result.Id }, result);
     }
 

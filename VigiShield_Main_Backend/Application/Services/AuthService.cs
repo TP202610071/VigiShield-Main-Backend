@@ -13,12 +13,14 @@ public class AuthService
     private readonly AppDbContext _db;
     private readonly JwtService _jwt;
     private readonly ILogger<AuthService> _logger;
+    private readonly WhatsAppService _whatsApp;
 
-    public AuthService(AppDbContext db, JwtService jwt, ILogger<AuthService> logger)
+    public AuthService(AppDbContext db, JwtService jwt, ILogger<AuthService> logger, WhatsAppService whatsApp)
     {
         _db = db;
         _jwt = jwt;
         _logger = logger;
+        _whatsApp = whatsApp;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -195,6 +197,21 @@ public class AuthService
         invitation.AcceptedAt = DateTime.UtcNow;
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
+
+        // Notify existing household members that a new person now has camera access.
+        if (_whatsApp.IsConfigured)
+        {
+            var numbers = await _db.Users
+                .Where(u => u.HouseholdId == invitation.HouseholdId && u.Id != user.Id
+                            && u.WhatsAppNumber != null && u.WhatsAppNumber != "")
+                .Select(u => u.WhatsAppNumber!)
+                .ToListAsync();
+            if (numbers.Count > 0)
+            {
+                var (date, time) = WhatsAppService.LocalParts(DateTime.UtcNow);
+                _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_new_household_member", date, time, user.Name);
+            }
+        }
 
         return new AuthResponse(_jwt.GenerateToken(user), ToProfileDto(user));
     }
