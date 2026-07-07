@@ -45,6 +45,18 @@ public class EventsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Developer/admin tool: trigger a real alert for any household on demand
+    /// (saved + notified + shown in the app, bypassing monitoring-pause).</summary>
+    [HttpPost("simulate")]
+    [Authorize]
+    public async Task<ActionResult<EventDto>> SimulateEvent([FromBody] SimulateEventRequest request)
+    {
+        if (!User.IsAdmin()) return Forbid();
+        var result = await _eventService.SimulateEventAsync(
+            request.HouseholdId, request.EventType, request.CameraName);
+        return Ok(result);
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<EventListResponse>> GetEvents(

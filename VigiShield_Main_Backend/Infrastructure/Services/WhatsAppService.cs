@@ -42,22 +42,37 @@ public class WhatsAppService
                 local.ToString("hh:mm tt", CultureInfo.InvariantCulture));
     }
 
-    /// <summary>Send a template (with ordered body parameters) to each recipient. Fire-and-forget friendly.</summary>
+    /// <summary>Send a template to each recipient. Fire-and-forget friendly.</summary>
+    /// <param name="langOverride">Template language code; null → WhatsApp:TemplateLang (es).</param>
+    /// <param name="buttonUrlParam">If set, fills the template's dynamic URL button
+    /// (e.g. https://vigishield.app/event/{{1}}) with this value (the event id).</param>
     public async Task SendTemplateAsync(
-        IReadOnlyCollection<string> toNumbers, string templateName, params string[] bodyParams)
+        IReadOnlyCollection<string> toNumbers, string templateName,
+        string? langOverride, string? buttonUrlParam, params string[] bodyParams)
     {
         if (!IsConfigured || toNumbers.Count == 0) return;
 
         var version = _cfg["WhatsApp:ApiVersion"] ?? "v21.0";
         var phoneId = _cfg["WhatsApp:PhoneNumberId"];
         var token = _cfg["WhatsApp:AccessToken"];
-        var lang = _cfg["WhatsApp:TemplateLang"] ?? "es";
+        var lang = langOverride ?? _cfg["WhatsApp:TemplateLang"] ?? "es";
         var url = $"https://graph.facebook.com/{version}/{phoneId}/messages";
 
         var client = _httpFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var parameters = bodyParams.Select(p => new { type = "text", text = p }).ToArray();
+        var components = new List<object>();
+        if (parameters.Length > 0)
+            components.Add(new { type = "body", parameters });
+        if (!string.IsNullOrEmpty(buttonUrlParam))
+            components.Add(new
+            {
+                type = "button",
+                sub_type = "url",
+                index = "0",
+                parameters = new object[] { new { type = "text", text = buttonUrlParam } }
+            });
 
         foreach (var raw in toNumbers)
         {
@@ -73,9 +88,7 @@ public class WhatsAppService
                 {
                     name = templateName,
                     language = new { code = lang },
-                    components = parameters.Length == 0
-                        ? Array.Empty<object>()
-                        : new object[] { new { type = "body", parameters } }
+                    components = components.ToArray()
                 }
             };
 
@@ -98,6 +111,21 @@ public class WhatsAppService
                 _log.LogWarning(e, "WhatsApp send error to {To}", Mask(to));
             }
         }
+    }
+
+    /// <summary>Send the configured event-alert template (name/lang/button from config).
+    /// Set WhatsApp:EventTemplate, :EventTemplateLang, :EventTemplateHasButton to switch
+    /// between vigishield_general_alert (en, no button) and the deep-link template.</summary>
+    public Task SendEventAlertAsync(
+        IReadOnlyCollection<string> toNumbers, string eventId,
+        string eventLabel, string camera, string date, string time)
+    {
+        var template = _cfg["WhatsApp:EventTemplate"] ?? "vigishield_general_alert_deeplink";
+        var lang = _cfg["WhatsApp:EventTemplateLang"] ?? "es";
+        var hasButton = !string.Equals(
+            _cfg["WhatsApp:EventTemplateHasButton"], "false", StringComparison.OrdinalIgnoreCase);
+        return SendTemplateAsync(toNumbers, template, lang,
+            hasButton ? eventId : null, eventLabel, camera, date, time);
     }
 
     /// <summary>Digits-only E.164 (Cloud API wants no '+'). Returns null if too short.</summary>

@@ -46,49 +46,88 @@ public class EventService
             CreatedAt = DateTime.UtcNow
         };
 
+        return await CreateAndNotifyAsync(ev);
+    }
+
+    /// <summary>Developer/admin tool: create a real event (saved + notified, shown in
+    /// the app) for any household as if it had truly fired. Bypasses monitoring-pause
+    /// so alerts can be demoed/tested on demand.</summary>
+    public async Task<EventDto> SimulateEventAsync(Guid householdId, EventType type, string? cameraName)
+    {
+        _ = await _db.Households.FirstOrDefaultAsync(h => h.Id == householdId)
+            ?? throw AppException.NotFound("Hogar no encontrado");
+
+        // Use the household's default camera name + reuse its most recent snapshot
+        // so the simulated event looks real in the app history.
+        var cam = cameraName
+            ?? await _db.CameraConfigs.Where(c => c.HouseholdId == householdId)
+                .OrderByDescending(c => c.IsDefault).Select(c => c.Name).FirstOrDefaultAsync()
+            ?? "Cámara";
+        var snapshot = await _db.Events
+            .Where(e => e.HouseholdId == householdId && e.ImageCapturePath != null)
+            .OrderByDescending(e => e.CreatedAt).Select(e => e.ImageCapturePath).FirstOrDefaultAsync();
+
+        var ev = new SecurityEvent
+        {
+            Id = Guid.NewGuid(),
+            HouseholdId = householdId,
+            CameraName = cam,
+            EventType = type,
+            ConfidenceScore = 0.95f,
+            ImageCapturePath = snapshot,
+            RiskLevel = DefaultRisk(type),
+            IsNighttime = DateTime.UtcNow.Hour is >= 3 or < 11, // Lima night-ish
+            CreatedAt = DateTime.UtcNow
+        };
+        return await CreateAndNotifyAsync(ev);
+    }
+
+    /// <summary>Persist an event and fire its push/WhatsApp alerts (Medium+). Shared by
+    /// real ingest and the simulate tool.</summary>
+    private async Task<EventDto> CreateAndNotifyAsync(SecurityEvent ev)
+    {
         _db.Events.Add(ev);
         await _db.SaveChangesAsync();
 
-        // Push notification (FCM) to household devices for Medium+ events.
-        if (_fcm.IsConfigured && ev.RiskLevel >= RiskLevel.Medium)
+        if (ev.RiskLevel >= RiskLevel.Medium)
         {
-            var tokens = await _db.Users
-                .Where(u => u.HouseholdId == ev.HouseholdId && u.FcmToken != null && u.FcmToken != "")
-                .Select(u => u.FcmToken!)
-                .ToListAsync();
-            if (tokens.Count > 0)
-            {
-                var (date, time) = WhatsAppService.LocalParts(ev.CreatedAt);
-                _ = _fcm.SendAsync(tokens,
-                    "VigiShield", $"{SpanishLabel(ev.EventType)} · {ev.CameraName ?? "Cámara"} · {time}",
-                    new Dictionary<string, string> { ["eventId"] = ev.Id.ToString(), ["type"] = ev.EventType.ToString() });
-            }
-        }
+            var (date, time) = WhatsAppService.LocalParts(ev.CreatedAt);
+            var camera = ev.CameraName ?? "Cámara";
 
-        // WhatsApp alert for anything Medium or worse (skips FaceRecognized/Low).
-        if (_whatsApp.IsConfigured && ev.RiskLevel >= RiskLevel.Medium)
-        {
-            var numbers = await _db.Users
-                .Where(u => u.HouseholdId == ev.HouseholdId && u.WhatsAppNumber != null && u.WhatsAppNumber != "")
-                .Select(u => u.WhatsAppNumber!)
-                .ToListAsync();
-            if (numbers.Count > 0)
+            if (_fcm.IsConfigured)
             {
-                var camera = ev.CameraName ?? "Cámara";
-                var (date, time) = WhatsAppService.LocalParts(ev.CreatedAt);
-                // Fire-and-forget: don't block the AI ingest call on Meta's API.
-                // Unauthorized-person events use the dedicated template; the rest
-                // use the generic one (with the event label as the first param).
-                if (ev.EventType is EventType.UnknownFace or EventType.RecurrentUnknownFace)
-                    _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_alert", camera, date, time);
-                else
-                    _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_general_alert",
-                        SpanishLabel(ev.EventType), camera, date, time);
+                var tokens = await _db.Users
+                    .Where(u => u.HouseholdId == ev.HouseholdId && u.FcmToken != null && u.FcmToken != "")
+                    .Select(u => u.FcmToken!).ToListAsync();
+                if (tokens.Count > 0)
+                    _ = _fcm.SendAsync(tokens, "VigiShield",
+                        $"{SpanishLabel(ev.EventType)} · {camera} · {time}",
+                        new Dictionary<string, string> { ["eventId"] = ev.Id.ToString(), ["type"] = ev.EventType.ToString() });
+            }
+
+            if (_whatsApp.IsConfigured)
+            {
+                var numbers = await _db.Users
+                    .Where(u => u.HouseholdId == ev.HouseholdId && u.WhatsAppNumber != null && u.WhatsAppNumber != "")
+                    .Select(u => u.WhatsAppNumber!).ToListAsync();
+                if (numbers.Count > 0)
+                    _ = _whatsApp.SendEventAlertAsync(
+                        numbers, ev.Id.ToString(), SpanishLabel(ev.EventType), camera, date, time);
             }
         }
 
         return ToDto(ev);
     }
+
+    private static RiskLevel DefaultRisk(EventType t) => t switch
+    {
+        EventType.WeaponDetected or EventType.Robbery or EventType.Assault
+            or EventType.PhysicalAggression or EventType.Burglary => RiskLevel.Critical,
+        EventType.ForcedAccessAttempt or EventType.Climbing or EventType.Stealing
+            or EventType.Vandalism => RiskLevel.High,
+        EventType.FaceRecognized => RiskLevel.None,
+        _ => RiskLevel.Medium,
+    };
 
     /// <summary>WhatsApp numbers of household members (for alerts).</summary>
     public Task<List<string>> HouseholdWhatsAppNumbersAsync(Guid householdId) => _db.Users

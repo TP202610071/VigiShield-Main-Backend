@@ -209,7 +209,7 @@ public class AuthService
             if (numbers.Count > 0)
             {
                 var (date, time) = WhatsAppService.LocalParts(DateTime.UtcNow);
-                _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_new_household_member", date, time, user.Name);
+                _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_new_household_member", null, null, date, time, user.Name);
             }
         }
 
@@ -260,6 +260,22 @@ public class AuthService
             .Where(u => u.Role == UserRole.Admin)
             .OrderBy(u => u.CreatedAt)
             .Select(u => new AdminUserDto(u.Id, u.Email, u.Name, u.CreatedAt))
+            .ToListAsync();
+    }
+
+    /// <summary>Search households by their primary user's name or email (admin tool).</summary>
+    public async Task<List<HouseholdSummaryDto>> SearchHouseholdsAsync(string? query)
+    {
+        var q = from h in _db.Households
+                join u in _db.Users on h.PrimaryUserId equals u.Id
+                select new { h.Id, u.Name, u.Email };
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var ql = query.ToLower();
+            q = q.Where(x => x.Name.ToLower().Contains(ql) || x.Email.ToLower().Contains(ql));
+        }
+        return await q.OrderBy(x => x.Name).Take(30)
+            .Select(x => new HouseholdSummaryDto(x.Id, x.Name, x.Email))
             .ToListAsync();
     }
 

@@ -70,4 +70,12 @@ public class UsersController : ControllerBase
         await _authService.RemoveAdminAsync(userId);
         return NoContent();
     }
+
+    /// <summary>Search households by primary user name/email (for the dev alert-trigger tool).</summary>
+    [HttpGet("households")]
+    public async Task<ActionResult<List<HouseholdSummaryDto>>> SearchHouseholds([FromQuery] string? query)
+    {
+        if (!User.IsAdmin()) return Forbid();
+        return Ok(await _authService.SearchHouseholdsAsync(query));
+    }
 }

@@ -57,7 +57,7 @@ public class SystemService
             if (numbers.Count > 0)
             {
                 var (date, time) = WhatsAppService.LocalParts(DateTime.UtcNow);
-                _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_monitoring_paused", date, time);
+                _ = _whatsApp.SendTemplateAsync(numbers, "vigishield_monitoring_paused", null, null, date, time);
             }
         }
     }
