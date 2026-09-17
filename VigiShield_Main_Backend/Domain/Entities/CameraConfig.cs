@@ -33,6 +33,12 @@ public class CameraConfig
     // ── Direct RTSP — custom view URL ────────────────────────────────────────
     public string? CustomHlsUrl { get; set; }
 
+    // ── Zonas de interés (ROI) dibujadas por el usuario ──────────────────────
+    // JSON: { "version":1, "zones":[ {id,type,name,polygon:[[x,y]...]} ] } con
+    // coordenadas normalizadas (0..1). Null = el usuario no dibujó nada (el
+    // pipeline de IA opera igual que antes). Lo consume el backend de IA (CAIEE).
+    public string? ZonesJson { get; set; }
+
     // ── Status ───────────────────────────────────────────────────────────────
     public bool IsConfigured { get; set; }
     public DateTime? LastVerifiedAt { get; set; }
