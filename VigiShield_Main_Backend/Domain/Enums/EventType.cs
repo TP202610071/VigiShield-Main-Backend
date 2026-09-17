@@ -33,4 +33,9 @@ public enum EventType
 
     // Object detection (YOLO)
     WeaponDetected,
+
+    // Anticipatory (CAIEE — Context-Aware Intent Estimation Engine)
+    // Riesgo de intrusión/robo estimado ANTES de que ocurra, por escalamiento
+    // sostenido de señales (zona + merodeo + desconocido + arma…).
+    SuspiciousIntent,
 }

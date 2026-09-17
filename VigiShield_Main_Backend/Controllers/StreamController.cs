@@ -74,6 +74,17 @@ public class StreamController : ControllerBase
         return NoContent();
     }
 
+    // ── Zonas de interés (ROI) ────────────────────────────────────────────────
+
+    /// <summary>Guarda las zonas dibujadas por el usuario para una cámara. Residentes primarios.</summary>
+    [HttpPut("cameras/{cameraId:guid}/zones")]
+    [Authorize]
+    public async Task<ActionResult<CameraConfigDto>> UpdateZones(Guid cameraId, [FromBody] UpdateZonesRequest request)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        return Ok(await _cameraService.UpdateZonesAsync(User.GetHouseholdId(), cameraId, request));
+    }
+
     // ── Live camera image/video controls (hi3510 CGI) ─────────────────────────
 
     /// <summary>Read the camera's current image/video settings (brightness, etc.).</summary>
