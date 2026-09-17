@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VigiShield.Application.DTOs.Stream;
 using VigiShield.Common.Exceptions;
@@ -121,6 +122,30 @@ public class CameraService
         return ToDto(cam);
     }
 
+    // ── Zonas de interés (ROI) ────────────────────────────────────────────────
+
+    /// <summary>Guarda las zonas dibujadas por el usuario para una cámara.
+    /// Lista vacía/null borra las zonas (vuelve al comportamiento sin contexto).</summary>
+    public async Task<CameraConfigDto> UpdateZonesAsync(Guid householdId, Guid cameraId, UpdateZonesRequest req)
+    {
+        var cam = await _db.CameraConfigs
+            .FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
+            ?? throw AppException.NotFound("Cámara no encontrada");
+
+        if (req.Zones is null || req.Zones.Count == 0)
+        {
+            cam.ZonesJson = null;
+        }
+        else
+        {
+            cam.ZonesJson = JsonSerializer.Serialize(new { version = 1, zones = req.Zones });
+        }
+
+        cam.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return ToDto(cam);
+    }
+
     // ── Delete ────────────────────────────────────────────────────────────────
 
     public async Task DeleteCameraAsync(Guid householdId, Guid cameraId)
@@ -180,6 +205,8 @@ public class CameraService
             streamMode = c.StreamMode.ToString(),
             streamKey = c.StreamKey,
             isDefault = c.IsDefault,
+            // Zonas ROI (JSON crudo) — el backend de IA (CAIEE) las parsea.
+            zones = c.ZonesJson,
         }).ToList();
     }
 
@@ -259,7 +286,8 @@ public class CameraService
         BuildRtspUrl(cam),
         cam.IsConfigured,
         cam.LastVerifiedAt,
-        BuildMediaMtxRtspViewUrl(cam)
+        BuildMediaMtxRtspViewUrl(cam),
+        cam.ZonesJson
     );
 
     private static string? BuildRtspUrl(CameraConfig cam)

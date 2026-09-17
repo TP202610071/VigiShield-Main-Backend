@@ -18,5 +18,7 @@ public record CameraConfigDto(
     DateTime? LastVerifiedAt,
     // MediaMTX RTSP re-exposure — use this in the app instead of HlsViewUrl.
     // RTSP starts playing instantly (no keyframe wait), HLS blocks 0-16 s on cold start.
-    string? MediaMtxRtspUrl
+    string? MediaMtxRtspUrl,
+    // Zonas de interés (ROI) dibujadas por el usuario — JSON crudo (o null).
+    string? ZonesJson = null
 );
