@@ -57,6 +57,11 @@ public class CameraService
         if (makeDefault)
             await ClearDefaultFlagAsync(householdId);
 
+        // Cámara DEMO: si el usuario pone la IP "DEMO", se conecta al stream de
+        // demostración fijo (rtsp://localhost:8554/demo) que un servicio en el AI VM
+        // reproduce en loop. Se agrega/quita como cualquier cámara.
+        var isDemo = string.Equals(req.CameraIp?.Trim(), "DEMO", StringComparison.OrdinalIgnoreCase);
+
         var cam = new CameraConfig
         {
             Id = Guid.NewGuid(),
@@ -64,14 +69,14 @@ public class CameraService
             Name = string.IsNullOrWhiteSpace(req.Name) ? "Cámara" : req.Name.Trim(),
             IsDefault = makeDefault,
             StreamMode = mode,
-            CameraIp = req.CameraIp?.Trim(),
+            CameraIp = isDemo ? "DEMO" : req.CameraIp?.Trim(),
             CameraPort = req.CameraPort > 0 ? req.CameraPort : 554,
             CameraPath = string.IsNullOrWhiteSpace(req.CameraPath) ? null : req.CameraPath.Trim(),
             CameraUsername = string.IsNullOrWhiteSpace(req.CameraUsername) ? null : req.CameraUsername,
             CameraPassword = string.IsNullOrWhiteSpace(req.CameraPassword) ? null : req.CameraPassword,
             CustomHlsUrl = string.IsNullOrWhiteSpace(req.CustomHlsUrl) ? null : req.CustomHlsUrl.Trim(),
-            StreamKey = Guid.NewGuid().ToString("N")[..12],
-            IsConfigured = !string.IsNullOrEmpty(req.CameraIp),
+            StreamKey = isDemo ? "demo" : Guid.NewGuid().ToString("N")[..12],
+            IsConfigured = isDemo || !string.IsNullOrEmpty(req.CameraIp),
         };
 
         _db.CameraConfigs.Add(cam);
@@ -106,6 +111,14 @@ public class CameraService
 
         cam.CustomHlsUrl = string.IsNullOrWhiteSpace(req.CustomHlsUrl) ? null : req.CustomHlsUrl.Trim();
         cam.IsConfigured = !string.IsNullOrEmpty(cam.CameraIp);
+
+        // Cámara DEMO (IP "DEMO") → apunta al stream de demostración fijo.
+        if (string.Equals(cam.CameraIp, "DEMO", StringComparison.OrdinalIgnoreCase))
+        {
+            cam.CameraIp = "DEMO";
+            cam.StreamKey = "demo";
+            cam.IsConfigured = true;
+        }
 
         if (req.IsDefault && !cam.IsDefault)
         {
@@ -252,7 +265,8 @@ public class CameraService
             .Where(c => c.StreamMode == StreamMode.DirectRtsp
                         && c.IsConfigured
                         && c.StreamKey != null
-                        && c.CameraIp != null)
+                        && c.CameraIp != null
+                        && c.CameraIp != "DEMO")  // la demo la publica el loop, no se hace pull
             .ToListAsync();
 
         var paths = allCameras.Select(c => (c.StreamKey!, BuildRtspUrl(c)!))
