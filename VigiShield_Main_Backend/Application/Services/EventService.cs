@@ -135,32 +135,66 @@ public class EventService
         .Select(u => u.WhatsAppNumber!)
         .ToListAsync();
 
-    private static string SpanishLabel(EventType t) => t switch
+    /// <summary>
+    /// Nombre en español de un tipo de evento. Es el MISMO vocabulario que muestra
+    /// la app (AppStrings.eventTypeLabel), para que una alerta de WhatsApp y la
+    /// ficha del historial nombren el incidente igual.
+    ///
+    /// Debe cubrir TODOS los valores del enum: los que faltaban caían en
+    /// `t.ToString()` y llegaban al usuario con el nombre interno en inglés
+    /// ("SuspiciousIntent"). El descarte final solo existe por si se agrega un
+    /// tipo nuevo y se olvida actualizar aquí, y separa las palabras para que al
+    /// menos sea legible.
+    /// </summary>
+    public static string SpanishLabel(EventType t) => t switch
     {
+        EventType.FaceRecognized => "Acceso reconocido",
         EventType.UnknownFace => "Persona desconocida",
-        EventType.RecurrentUnknownFace => "Persona desconocida recurrente",
-        EventType.LowConfidenceFace => "Rostro no confirmado",
-        EventType.FaceRecognized => "Persona reconocida",
-        EventType.WeaponDetected => "Arma detectada",
-        EventType.Tailgating => "Merodeador detectado",
+        EventType.LowConfidenceFace => "Detección de baja confianza",
+        EventType.RecurrentUnknownFace => "Visitante desconocido recurrente",
         EventType.ForcedAccessAttempt => "Intento de acceso forzado",
-        EventType.Climbing => "Escalamiento detectado",
-        EventType.PhysicalAggression => "Agresión física",
-        EventType.Robbery => "Robo",
+        EventType.Tailgating => "Merodeo",
+        EventType.Climbing => "Escalamiento",
         EventType.Burglary => "Allanamiento",
+        EventType.PhysicalAggression => "Agresión física",
         EventType.Assault => "Asalto",
-        EventType.Vandalism => "Vandalismo",
+        EventType.Abuse => "Abuso",
+        EventType.Arrest => "Arresto",
         EventType.Stealing => "Hurto",
-        _ => t.ToString(),
+        EventType.Shoplifting => "Hurto en tienda",
+        EventType.Vandalism => "Vandalismo",
+        EventType.Robbery => "Robo a mano armada",
+        EventType.Arson => "Incendio provocado",
+        EventType.Explosion => "Explosión",
+        EventType.Roadaccidents => "Accidente de tránsito",
+        EventType.WeaponDetected => "Arma detectada",
+        EventType.SuspiciousIntent => "Riesgo de intrusión",
+        _ => SplitPascalCase(t.ToString()),
     };
 
+    /// <summary>"SuspiciousIntent" → "Suspicious intent" (último recurso).</summary>
+    private static string SplitPascalCase(string name)
+    {
+        var sb = new System.Text.StringBuilder(name.Length + 8);
+        foreach (var ch in name)
+        {
+            if (char.IsUpper(ch) && sb.Length > 0) sb.Append(' ').Append(char.ToLowerInvariant(ch));
+            else sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
     public async Task<EventListResponse> GetEventsAsync(
-        Guid householdId, string? type, DateTime? from, DateTime? to, int page, int pageSize)
+        Guid householdId, string? type, Guid? cameraId,
+        DateTime? from, DateTime? to, int page, int pageSize)
     {
         var query = _db.Events.Where(e => e.HouseholdId == householdId);
 
         if (!string.IsNullOrEmpty(type) && Enum.TryParse<EventType>(type, ignoreCase: true, out var parsedType))
             query = query.Where(e => e.EventType == parsedType);
+
+        if (cameraId.HasValue)
+            query = query.Where(e => e.CameraId == cameraId.Value);
 
         if (from.HasValue)
             query = query.Where(e => e.CreatedAt >= from.Value);
