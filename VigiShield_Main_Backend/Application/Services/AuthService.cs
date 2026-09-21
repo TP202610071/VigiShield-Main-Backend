@@ -14,13 +14,18 @@ public class AuthService
     private readonly JwtService _jwt;
     private readonly ILogger<AuthService> _logger;
     private readonly WhatsAppService _whatsApp;
+    private readonly EmailService _email;
+    private readonly IConfiguration _cfg;
 
-    public AuthService(AppDbContext db, JwtService jwt, ILogger<AuthService> logger, WhatsAppService whatsApp)
+    public AuthService(AppDbContext db, JwtService jwt, ILogger<AuthService> logger,
+        WhatsAppService whatsApp, EmailService email, IConfiguration cfg)
     {
         _db = db;
         _jwt = jwt;
         _logger = logger;
         _whatsApp = whatsApp;
+        _email = email;
+        _cfg = cfg;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -117,8 +122,19 @@ public class AuthService
         user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(24);
         await _db.SaveChangesAsync();
 
-        // TODO: Send email with reset link containing the token
-        _logger.LogInformation("Password reset requested for {Email}. Token: {Token}", user.Email, user.PasswordResetToken);
+        // El enlace apunta a la página web de restablecimiento, no a la app: así
+        // el usuario puede recuperar su cuenta desde cualquier dispositivo con
+        // navegador, aunque sea justo el teléfono al que no puede entrar.
+        var baseUrl = (_cfg["Email:ResetUrlBase"] ?? "https://vigishield.app/reset").TrimEnd('/');
+        var resetUrl = $"{baseUrl}?token={user.PasswordResetToken}";
+
+        var sent = await _email.SendPasswordResetAsync(user.Email, user.Name, resetUrl);
+        if (!sent)
+        {
+            // Nunca se propaga al usuario: la respuesta debe ser idéntica exista o
+            // no la cuenta, para no revelar qué correos están registrados.
+            _logger.LogError("No se pudo enviar el correo de recuperación a {Email}", user.Email);
+        }
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request)
