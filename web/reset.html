@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Restablecer contraseña · VigiShield</title>
+<style>
+  :root{--bg:#0A0F1E;--card:#111827;--line:#1F2937;--fg:#E5E7EB;--muted:#9CA3AF;
+        --accent:#00C2FF;--red:#EF4444;--green:#34D399}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:var(--bg);color:var(--fg);padding:16px;
+       font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+  .card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);
+        border-radius:16px;padding:32px}
+  h1{color:var(--accent);font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:11px;letter-spacing:2px;margin:0 0 24px}
+  h2{font-size:17px;margin:0 0 6px}
+  p.hint{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 20px}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  input{width:100%;padding:13px 14px;margin:0 0 16px;background:#0D1424;color:var(--fg);
+        border:1px solid var(--line);border-radius:10px;font-size:15px}
+  input:focus{outline:none;border-color:var(--accent)}
+  button{width:100%;padding:14px;border:0;border-radius:12px;background:var(--accent);
+         color:#0A0F1E;font-size:15px;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.55;cursor:default}
+  .msg{font-size:13px;line-height:1.6;padding:12px 14px;border-radius:10px;margin:0 0 16px;display:none}
+  .msg.err{display:block;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#FCA5A5}
+  .msg.ok{display:block;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#6EE7B7}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>VigiShield</h1>
+  <p class="sub">SEGURIDAD INTELIGENTE</p>
+  <h2>Restablecer contraseña</h2>
+  <p class="hint">Elige una contraseña nueva de al menos 8 caracteres. Después inicia sesión en la aplicación con ella.</p>
+
+  <div id="msg" class="msg"></div>
+
+  <form id="form">
+    <label for="p1">Nueva contraseña</label>
+    <input id="p1" type="password" autocomplete="new-password" placeholder="••••••••">
+    <label for="p2">Repite la contraseña</label>
+    <input id="p2" type="password" autocomplete="new-password" placeholder="••••••••">
+    <button id="btn" type="submit">Guardar contraseña</button>
+  </form>
+</div>
+
+<script>
+  const API = 'https://api.vigishield.app';
+  const token = new URLSearchParams(location.search).get('token');
+  // Keep the bearer token in memory, not in copied URLs or browser history.
+  if (token) history.replaceState(null, '', location.pathname);
+  const msg = document.getElementById('msg');
+  const form = document.getElementById('form');
+  const btn = document.getElementById('btn');
+
+  function show(text, ok) {
+    msg.textContent = text;
+    msg.className = 'msg ' + (ok ? 'ok' : 'err');
+  }
+
+  if (!token) {
+    show('Este enlace no es válido. Vuelve a solicitar el restablecimiento desde la aplicación.', false);
+    form.style.display = 'none';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const p1 = document.getElementById('p1').value;
+    const p2 = document.getElementById('p2').value;
+    if (p1.length < 8) return show('La contraseña debe tener al menos 8 caracteres.', false);
+    if (p1 !== p2)     return show('Las contraseñas no coinciden.', false);
+
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+      const r = await fetch(API + '/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, newPassword: p1 })
+      });
+      if (r.ok) {
+        show('Listo. Ya puedes iniciar sesión en la aplicación con tu contraseña nueva.', true);
+        form.style.display = 'none';
+      } else {
+        // El backend responde 400 con el motivo (token inválido o caducado).
+        let detalle = '';
+        try { const d = await r.json(); detalle = d.message || d.title || ''; } catch (_) {}
+        show(detalle || 'El enlace ya caducó o no es válido. Solicita uno nuevo desde la aplicación.', false);
+        btn.disabled = false;
+        btn.textContent = 'Guardar contraseña';
+      }
+    } catch (_) {
+      show('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.', false);
+      btn.disabled = false;
+      btn.textContent = 'Guardar contraseña';
+    }
+  });
+</script>
+</body>
+</html>
