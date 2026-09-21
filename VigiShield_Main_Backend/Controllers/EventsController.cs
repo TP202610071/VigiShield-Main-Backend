@@ -61,6 +61,7 @@ public class EventsController : ControllerBase
     [Authorize]
     public async Task<ActionResult<EventListResponse>> GetEvents(
         [FromQuery] string? type,
+        [FromQuery] Guid? cameraId,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] int page = 1,
@@ -70,7 +71,7 @@ public class EventsController : ControllerBase
         pageSize = Math.Clamp(pageSize, 1, 100);
 
         return Ok(await _eventService.GetEventsAsync(
-            User.GetHouseholdId(), type, from, to, page, pageSize));
+            User.GetHouseholdId(), type, cameraId, from, to, page, pageSize));
     }
 
     [HttpGet("{id:guid}")]
