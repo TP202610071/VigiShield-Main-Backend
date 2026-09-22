@@ -9,5 +9,10 @@ public record AlertConfigDto(
     int TailgatingThresholdSeconds,
     string? NighttimeStart,
     string? NighttimeEnd,
-    bool WhatsAppEnabled
+    bool WhatsAppEnabled,
+    // Control por tipo de evento. `AvailableEventTypes` es la lista completa que
+    // la app debe ofrecer; `DisabledEventTypes` los que están apagados. Los cinco
+    // booleanos de arriba se derivan de esto y se mantienen sólo por compatibilidad.
+    IReadOnlyList<string> AvailableEventTypes,
+    IReadOnlyList<string> DisabledEventTypes
 );

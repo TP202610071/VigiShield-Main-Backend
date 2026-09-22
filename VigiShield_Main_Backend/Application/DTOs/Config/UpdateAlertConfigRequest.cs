@@ -11,5 +11,8 @@ public record UpdateAlertConfigRequest(
     [Range(15, 120)] int TailgatingThresholdSeconds,
     string? NighttimeStart,
     string? NighttimeEnd,
-    bool WhatsAppEnabled
+    bool WhatsAppEnabled,
+    // Cuando llega (app nueva) manda sobre los booleanos; si es null se conserva
+    // lo guardado, para no romper a un cliente antiguo que no envíe el campo.
+    IReadOnlyList<string>? DisabledEventTypes = null
 );
