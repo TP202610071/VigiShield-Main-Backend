@@ -111,6 +111,44 @@ public class EmailService
         return SendAsync(to, "Restablece tu contraseña de VigiShield", html);
     }
 
+    /// <summary>Plantilla del correo de invitación a una vivienda.</summary>
+    public Task<bool> SendInvitationAsync(string to, string quienInvita, string inviteUrl)
+    {
+        var de = string.IsNullOrWhiteSpace(quienInvita)
+            ? "El residente principal"
+            : WebUtility.HtmlEncode(quienInvita);
+        var html = $"""
+            <div style="font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0A0F1E;padding:32px">
+              <div style="max-width:520px;margin:0 auto;background:#111827;border:1px solid #1F2937;border-radius:16px;padding:32px">
+                <h1 style="color:#00C2FF;font-size:20px;margin:0 0 4px">VigiShield</h1>
+                <p style="color:#9CA3AF;font-size:12px;margin:0 0 24px;letter-spacing:2px">SEGURIDAD INTELIGENTE</p>
+                <p style="color:#E5E7EB;font-size:15px;line-height:1.6;margin:0 0 16px">
+                  {de} te ha invitado a la vigilancia de su vivienda.
+                </p>
+                <p style="color:#E5E7EB;font-size:15px;line-height:1.6;margin:0 0 24px">
+                  Al aceptar podrás ver el video en vivo, el historial de eventos y sus
+                  evidencias. No podrás modificar cámaras, rostros ni la configuración:
+                  eso queda en manos del residente principal. La invitación caduca en 7 días.
+                </p>
+                <p style="margin:0 0 24px">
+                  <a href="{inviteUrl}" style="display:inline-block;background:#00C2FF;color:#0A0F1E;
+                     text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px">
+                    Aceptar invitación
+                  </a>
+                </p>
+                <p style="color:#9CA3AF;font-size:13px;line-height:1.6;margin:0 0 8px">
+                  Si el botón no funciona, copia esta dirección en tu navegador:
+                </p>
+                <p style="color:#00C2FF;font-size:12px;word-break:break-all;margin:0 0 24px">{inviteUrl}</p>
+                <p style="color:#6B7280;font-size:12px;line-height:1.6;margin:0;border-top:1px solid #1F2937;padding-top:16px">
+                  Si no esperabas esta invitación, ignora este mensaje: sin aceptarla no se crea ninguna cuenta.
+                </p>
+              </div>
+            </div>
+            """;
+        return SendAsync(to, "Te invitaron a VigiShield", html);
+    }
+
     private static string Mask(string email)
     {
         var at = email.IndexOf('@');

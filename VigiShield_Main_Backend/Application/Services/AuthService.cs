@@ -179,10 +179,42 @@ public class AuthService
         _db.Invitations.Add(invitation);
         await _db.SaveChangesAsync();
 
-        // TODO: Send invitation email with the token
-        _logger.LogInformation("Invitation created for {Email}. Token: {Token}", invitation.Email, invitation.Token);
+        // El enlace lo abre la app si está instalada (App Link verificado) y, si
+        // no, la página web: quien recibe la invitación normalmente todavía no
+        // tiene la aplicación.
+        var baseUrl = (_cfg["Email:InviteUrlBase"] ?? "https://vigishield.app/invitacion").TrimEnd('/');
+        var url = $"{baseUrl}?token={invitation.Token}";
+
+        var quienInvita = await _db.Users
+            .Where(u => u.HouseholdId == householdId && u.Role != UserRole.Secondary)
+            .Select(u => u.Name).FirstOrDefaultAsync() ?? "";
+
+        var enviado = await _email.SendInvitationAsync(invitation.Email, quienInvita, url);
+        if (!enviado)
+            _logger.LogError("No se pudo enviar la invitación a {Email}", invitation.Email);
 
         return new InviteUserResponse(invitation.Token, invitation.Email, invitation.ExpiresAt);
+    }
+
+    /// <summary>
+    /// Datos de una invitación a partir de su token, para la pantalla/página de
+    /// aceptación. No requiere sesión (quien la recibe aún no tiene cuenta) y por
+    /// eso NUNCA devuelve nada sensible del hogar más allá de quién invita y a
+    /// qué dirección: con el token en la mano eso ya se sabe.
+    /// </summary>
+    public async Task<InvitationInfoDto> GetInvitationAsync(string token)
+    {
+        var inv = await _db.Invitations.FirstOrDefaultAsync(i => i.Token == token);
+        if (inv is null) return new InvitationInfoDto(false, "no_existe", null, null, null, null);
+        if (inv.IsAccepted) return new InvitationInfoDto(false, "ya_usada", inv.Email, null, null, inv.ExpiresAt);
+        if (inv.IsExpired) return new InvitationInfoDto(false, "caducada", inv.Email, null, null, inv.ExpiresAt);
+
+        var casa = await _db.Households.FirstOrDefaultAsync(h => h.Id == inv.HouseholdId);
+        var invita = await _db.Users
+            .Where(u => u.HouseholdId == inv.HouseholdId && u.Role != UserRole.Secondary)
+            .Select(u => u.Name).FirstOrDefaultAsync();
+
+        return new InvitationInfoDto(true, null, inv.Email, invita, casa?.Address, inv.ExpiresAt);
     }
 
     public async Task<AuthResponse> AcceptInvitationAsync(AcceptInvitationRequest request)
