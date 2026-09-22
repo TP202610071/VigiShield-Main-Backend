@@ -40,6 +40,15 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Datos de la invitación para la pantalla de aceptación (sin sesión:
+    /// quien la recibe todavía no tiene cuenta).</summary>
+    [HttpGet("invitation/{token}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<InvitationInfoDto>> GetInvitation(string token)
+    {
+        return Ok(await _authService.GetInvitationAsync(token));
+    }
+
     [HttpPost("accept-invitation")]
     [AllowAnonymous]
     public async Task<ActionResult<AuthResponse>> AcceptInvitation([FromBody] AcceptInvitationRequest request)
