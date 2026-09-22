@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VigiShield.Application.DTOs.Config;
+using VigiShield.Common.Alerts;
 using VigiShield.Common.Exceptions;
 using VigiShield.Domain.Entities;
 using VigiShield.Infrastructure.Persistence;
@@ -22,11 +23,27 @@ public class ConfigService
     {
         var config = await GetOrCreateAsync(householdId);
 
-        config.UnknownPersonEnabled = request.UnknownPersonEnabled;
-        config.ForcedAccessEnabled = request.ForcedAccessEnabled;
-        config.TailgatingEnabled = request.TailgatingEnabled;
-        config.ClimbingEnabled = request.ClimbingEnabled;
-        config.AggressionEnabled = request.AggressionEnabled;
+        if (request.DisabledEventTypes is not null)
+        {
+            // Cliente nuevo: la selección por tipo es la fuente de verdad y los
+            // interruptores por grupos se recalculan a partir de ella, para que
+            // no puedan quedar diciendo cosas distintas.
+            config.DisabledEventTypes = AlertableEvents.Serialize(request.DisabledEventTypes);
+            var off = AlertableEvents.Parse(config.DisabledEventTypes);
+            config.UnknownPersonEnabled = AlertableEvents.LegacyEnabled("unknownPerson", off);
+            config.ForcedAccessEnabled = AlertableEvents.LegacyEnabled("forcedAccess", off);
+            config.TailgatingEnabled = AlertableEvents.LegacyEnabled("tailgating", off);
+            config.ClimbingEnabled = AlertableEvents.LegacyEnabled("climbing", off);
+            config.AggressionEnabled = AlertableEvents.LegacyEnabled("aggression", off);
+        }
+        else
+        {
+            config.UnknownPersonEnabled = request.UnknownPersonEnabled;
+            config.ForcedAccessEnabled = request.ForcedAccessEnabled;
+            config.TailgatingEnabled = request.TailgatingEnabled;
+            config.ClimbingEnabled = request.ClimbingEnabled;
+            config.AggressionEnabled = request.AggressionEnabled;
+        }
         config.TailgatingThresholdSeconds = request.TailgatingThresholdSeconds;
         config.WhatsAppEnabled = request.WhatsAppEnabled;
 
@@ -52,5 +69,7 @@ public class ConfigService
         c.UnknownPersonEnabled, c.ForcedAccessEnabled, c.TailgatingEnabled,
         c.ClimbingEnabled, c.AggressionEnabled, c.TailgatingThresholdSeconds,
         c.NighttimeStart?.ToString("HH:mm"), c.NighttimeEnd?.ToString("HH:mm"),
-        c.WhatsAppEnabled);
+        c.WhatsAppEnabled,
+        AlertableEvents.All.Select(t => t.ToString()).ToList(),
+        AlertableEvents.Parse(c.DisabledEventTypes).ToList());
 }
