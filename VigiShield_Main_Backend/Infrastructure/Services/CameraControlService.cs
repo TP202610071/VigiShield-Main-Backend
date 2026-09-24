@@ -22,12 +22,15 @@ public class CameraControlService
     private readonly AppDbContext _db;
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<CameraControlService> _logger;
+    private readonly CameraAgentBroker _agente;
 
-    public CameraControlService(AppDbContext db, IHttpClientFactory httpFactory, ILogger<CameraControlService> logger)
+    public CameraControlService(AppDbContext db, IHttpClientFactory httpFactory,
+        ILogger<CameraControlService> logger, CameraAgentBroker agente)
     {
         _db = db;
         _httpFactory = httpFactory;
         _logger = logger;
+        _agente = agente;
     }
 
     // Which CGI command owns each setting key.
@@ -82,10 +85,14 @@ public class CameraControlService
             }
         }
 
-        if (result.Count == 0)
-            throw new AppException("No se pudo leer la configuración de la cámara. Verifica que esté en línea y en la misma red.");
+        if (result.Count != 0) return result;
 
-        return result;
+        // El backend esta en la nube: una IP privada no se alcanza desde la VM.
+        // Si hay un agente corriendo en la casa, el que habla con la camara es el.
+        var porAgente = await PorAgenteAsync(householdId, cam, "read", new());
+        if (porAgente is not null) return porAgente;
+
+        throw new AppException(MensajeSinAcceso(householdId));
     }
 
     // ── Apply settings ─────────────────────────────────────────────────────────
@@ -116,22 +123,61 @@ public class CameraControlService
         if (commands.Count == 0)
             throw new AppException("No se enviaron ajustes válidos.");
 
-        foreach (var cmd in commands)
+        try
         {
-            try
+            foreach (var cmd in commands)
             {
                 var resp = await http.GetStringAsync(BuildUrl(cam, cmd));
-                _logger.LogInformation("Camera {Ip} applied: {Cmd} → {Resp}",
+                _logger.LogInformation("Camera {Ip} applied: {Cmd} -> {Resp}",
                     cam.CameraIp, cmd.Split('&')[0], resp.Trim());
             }
-            catch (Exception e)
-            {
-                throw new AppException($"La cámara rechazó el ajuste ({e.Message}).");
-            }
+            return;
         }
+        catch (Exception e)
+        {
+            _logger.LogInformation("La VM no alcanza {Ip} ({Msg}); se intenta por el agente de la casa",
+                cam.CameraIp, e.Message);
+        }
+
+        if (await PorAgenteAsync(householdId, cam, "apply", settings) is null)
+            throw new AppException(MensajeSinAcceso(householdId));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Manda la orden al agente de la vivienda. Devuelve null si no hay agente
+    /// conectado, si no contestó a tiempo o si la cámara le falló a él también.
+    /// </summary>
+    private async Task<Dictionary<string, string>?> PorAgenteAsync(
+        Guid householdId, CameraConfig cam, string kind, Dictionary<string, string> settings)
+    {
+        if (!_agente.AgenteConectado(householdId)) return null;
+
+        var orden = new CameraAgentCommand(
+            Guid.NewGuid(), cam.Id, cam.CameraIp!, _webPort,
+            cam.CameraUsername, cam.CameraPassword, kind, settings);
+
+        var r = await _agente.EjecutarAsync(householdId, orden);
+        if (r is null) return null;
+        if (!r.Ok)
+        {
+            _logger.LogWarning("El agente de {Household} no pudo con la camara: {Error}",
+                householdId, r.Error);
+            throw new AppException($"La cámara rechazó el ajuste ({r.Error}).");
+        }
+        return r.Values ?? new Dictionary<string, string>();
+    }
+
+    private string MensajeSinAcceso(Guid householdId) =>
+        _agente.AgenteConectado(householdId)
+            ? "El agente de tu casa no respondió a tiempo. Comprueba que siga corriendo."
+            : "No se pudo contactar con la cámara. Conecta el teléfono al wifi de casa, "
+              + "o deja corriendo el agente de VigiShield en una PC de la vivienda para "
+              + "poder cambiar estos ajustes desde fuera.";
+
+    /// <summary>¿Hay un agente de esta vivienda en línea?</summary>
+    public bool HayAgente(Guid householdId) => _agente.AgenteConectado(householdId);
 
     private async Task<CameraConfig> GetCameraAsync(Guid householdId, Guid cameraId)
     {

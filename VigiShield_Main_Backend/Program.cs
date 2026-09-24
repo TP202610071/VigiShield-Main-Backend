@@ -67,6 +67,9 @@ builder.Services.AddScoped<SystemService>();
 builder.Services.AddScoped<MediaMtxService>();
 builder.Services.AddScoped<CameraService>();
 builder.Services.AddScoped<CameraControlService>();
+// Singleton: la cola de ordenes para el agente de cada casa vive en memoria
+// del proceso, no en base de datos (una orden dura segundos).
+builder.Services.AddSingleton<CameraAgentBroker>();
 builder.Services.AddScoped<R2Service>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<WhatsAppService>();
