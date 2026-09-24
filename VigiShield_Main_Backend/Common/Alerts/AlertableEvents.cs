@@ -13,8 +13,22 @@ namespace VigiShield.Common.Alerts;
 /// </summary>
 public static class AlertableEvents
 {
-    /// <summary>Todos los tipos que el usuario puede gobernar, en el orden en que
-    /// los muestra la app (primero los que el sistema genera de verdad hoy).</summary>
+    /// <summary>
+    /// Los tipos que el usuario puede gobernar: solo los que el sistema genera
+    /// de verdad hoy y tienen sentido en una cámara de vivienda.
+    ///
+    /// La lista era más larga porque venía del conjunto de entrenamiento
+    /// (UCF-Crime), no de lo que hace el producto. Se quitaron dos grupos:
+    ///  · los que el motor NUNCA emite (Climbing, Vandalism, LowConfidenceFace,
+    ///    RecurrentUnknownFace): solo existían en el diccionario de etiquetas;
+    ///  · los que la clase del modelo contempla pero no se sostienen en una
+    ///    puerta de casa (Explosion, Arson, Roadaccidents, Arrest, Abuse,
+    ///    Assault, Shoplifting). El detector ya no los emite: Shoplifting cae
+    ///    en Stealing, y Assault/Abuse en PhysicalAggression.
+    ///
+    /// El enum EventType conserva TODOS los valores: los eventos históricos ya
+    /// guardados siguen teniendo que poder mostrar su nombre.
+    /// </summary>
     public static readonly IReadOnlyList<EventType> All = new[]
     {
         EventType.UnknownFace,
@@ -22,21 +36,10 @@ public static class AlertableEvents
         EventType.SuspiciousIntent,
         EventType.WeaponDetected,
         EventType.ForcedAccessAttempt,
-        EventType.Climbing,
         EventType.PhysicalAggression,
-        EventType.LowConfidenceFace,
-        EventType.RecurrentUnknownFace,
         EventType.Burglary,
         EventType.Robbery,
         EventType.Stealing,
-        EventType.Shoplifting,
-        EventType.Vandalism,
-        EventType.Assault,
-        EventType.Abuse,
-        EventType.Arrest,
-        EventType.Arson,
-        EventType.Explosion,
-        EventType.Roadaccidents,
     };
 
     /// <summary>Tipos que gobierna cada interruptor antiguo (para recalcularlos).</summary>
