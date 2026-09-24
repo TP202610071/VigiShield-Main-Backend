@@ -93,6 +93,19 @@ public class StreamController : ControllerBase
     public async Task<IActionResult> GetCameraControls(Guid cameraId)
         => Ok(await _cameraControl.GetSettingsAsync(User.GetHouseholdId(), cameraId));
 
+    /// <summary>
+    /// IP y credenciales de la cámara para controlarla desde la red local.
+    /// El backend en la nube no alcanza una IP privada, así que el ajuste de
+    /// imagen lo hace la app cuando el teléfono está en el wifi de casa.
+    /// </summary>
+    [HttpGet("cameras/{cameraId:guid}/lan-access")]
+    [Authorize]
+    public async Task<IActionResult> GetCameraLanAccess(Guid cameraId)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        return Ok(await _cameraControl.GetLanAccessAsync(User.GetHouseholdId(), cameraId));
+    }
+
     /// <summary>Apply image/video settings to the camera. Primary residents only.</summary>
     [HttpPut("cameras/{cameraId:guid}/control")]
     [Authorize]
