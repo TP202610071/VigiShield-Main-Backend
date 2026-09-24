@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using VigiShield.Application.DTOs.Stream;
 using VigiShield.Common.Exceptions;
 using VigiShield.Domain.Entities;
 using VigiShield.Infrastructure.Persistence;
@@ -37,6 +38,20 @@ public class CameraControlService
     };
     private static readonly HashSet<string> _vencKeys = new() { "bps", "fps", "gop", "brmode" };
     private const string _mainChannel = "11"; // RTSP /11 = main stream
+    private const int _webPort = 80;          // el CGI vive en el puerto web, no en el 554
+
+    // ── LAN access for the app ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Devuelve la IP y credenciales de la cámara para que la app la controle
+    /// desde la red local. Con el backend en la nube esta es la única vía que
+    /// funciona: una IP privada no es alcanzable desde la VM.
+    /// </summary>
+    public async Task<CameraLanAccessDto> GetLanAccessAsync(Guid householdId, Guid cameraId)
+    {
+        var cam = await GetCameraAsync(householdId, cameraId);
+        return new CameraLanAccessDto(cam.CameraIp!, _webPort, cam.CameraUsername, cam.CameraPassword);
+    }
 
     // ── Read current settings ─────────────────────────────────────────────────
 

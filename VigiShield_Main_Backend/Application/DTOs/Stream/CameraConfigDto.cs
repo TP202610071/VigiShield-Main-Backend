@@ -22,3 +22,16 @@ public record CameraConfigDto(
     // Zonas de interés (ROI) dibujadas por el usuario — JSON crudo (o null).
     string? ZonesJson = null
 );
+
+/// <summary>
+/// Datos que la app necesita para hablar con la cámara directamente por la red
+/// local. El backend en la nube no alcanza una IP privada (192.168.x.x), así
+/// que el control de imagen lo hace el teléfono cuando está en el wifi de casa.
+/// Solo se entrega al residente principal, que es quien configuró la cámara.
+/// </summary>
+public record CameraLanAccessDto(
+    string Ip,
+    int HttpPort,
+    string? Username,
+    string? Password
+);
