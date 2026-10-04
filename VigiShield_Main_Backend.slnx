@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="VigiShield.Tests/VigiShield.Tests.csproj" />
   <Project Path="VigiShield_Main_Backend/VigiShield_Main_Backend.csproj" />
 </Solution>

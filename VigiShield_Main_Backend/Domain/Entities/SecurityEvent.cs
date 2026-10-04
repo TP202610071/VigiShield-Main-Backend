@@ -16,6 +16,7 @@ public class SecurityEvent
     public string? VideoClipPath { get; set; }
     public string? PersonName { get; set; }
     public RiskLevel RiskLevel { get; set; }
+    public bool NotificationsEnabled { get; set; } = true;
     public bool IsNighttime { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -40,6 +40,7 @@ public class CameraConfig
     public string? ZonesJson { get; set; }
 
     // ── Status ───────────────────────────────────────────────────────────────
+    public bool NotificationsEnabled { get; set; } = true;
     public bool IsConfigured { get; set; }
     public DateTime? LastVerifiedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

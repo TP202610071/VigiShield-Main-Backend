@@ -6,5 +6,6 @@ public enum StreamMode
     DirectRtsp,
 
     /// <summary>Local PC relays stream via RTMP to the server's MediaMTX (CGNAT / dynamic IP).</summary>
-    RtmpRelay
+    RtmpRelay,
+    MobileWebRtc
 }

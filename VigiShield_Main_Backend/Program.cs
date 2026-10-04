@@ -57,6 +57,18 @@ builder.Services.AddHttpClient("mediamtx", c =>
     c.Timeout = TimeSpan.FromSeconds(5);
 });
 
+// Publisher keys must never follow a redirect to another origin.
+builder.Services.AddHttpClient("whip", c => c.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        MaxResponseHeadersLength = 16,
+        ConnectTimeout = TimeSpan.FromSeconds(5)
+    });
+builder.Services.AddSingleton<WhipPublishService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WhipPublishService>());
+
 // Application services
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<AuthService>();

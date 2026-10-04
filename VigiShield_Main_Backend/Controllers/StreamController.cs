@@ -16,19 +16,49 @@ public class StreamController : ControllerBase
     private readonly CameraControlService _cameraControl;
     private readonly ConfigService _configService;
     private readonly IConfiguration _config;
+    private readonly WhipPublishService _publish;
 
     public StreamController(
         CameraService cameraService,
         FaceService faceService,
         CameraControlService cameraControl,
         ConfigService configService,
-        IConfiguration config)
+        IConfiguration config,
+        WhipPublishService publish)
     {
         _cameraService = cameraService;
         _faceService = faceService;
         _cameraControl = cameraControl;
         _configService = configService;
         _config = config;
+        _publish = publish;
+    }
+
+    [HttpPost("cameras/{cameraId:guid}/publish")]
+    [Authorize]
+    [RequestSizeLimit(131072)]
+    public async Task<ActionResult<PublishResponse>> Publish(Guid cameraId, [FromBody] PublishRequest request, CancellationToken ct)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        return Ok(await _publish.PublishAsync(User.GetHouseholdId(), cameraId, request.Sdp, ct));
+    }
+
+    [HttpDelete("cameras/{cameraId:guid}/publish/{sessionId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> DeletePublish(Guid cameraId, Guid sessionId, CancellationToken ct)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        await _publish.DeleteAsync(User.GetHouseholdId(), cameraId, sessionId, ct);
+        return NoContent();
+    }
+
+    [HttpPatch("cameras/{cameraId:guid}/notifications")]
+    [Authorize]
+    public async Task<ActionResult<CameraConfigDto>> UpdateNotifications(Guid cameraId, [FromBody] UpdateNotificationsRequest request)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        if (!request.Enabled.HasValue) return BadRequest();
+        return Ok(await _cameraService.UpdateNotificationsAsync(User.GetHouseholdId(), cameraId, request.Enabled.Value));
     }
 
     // ── Multi-camera CRUD ─────────────────────────────────────────────────────

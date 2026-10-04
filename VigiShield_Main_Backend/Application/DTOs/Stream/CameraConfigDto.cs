@@ -20,7 +20,8 @@ public record CameraConfigDto(
     // RTSP starts playing instantly (no keyframe wait), HLS blocks 0-16 s on cold start.
     string? MediaMtxRtspUrl,
     // Zonas de interés (ROI) dibujadas por el usuario — JSON crudo (o null).
-    string? ZonesJson = null
+    string? ZonesJson = null,
+    bool NotificationsEnabled = true
 );
 
 /// <summary>

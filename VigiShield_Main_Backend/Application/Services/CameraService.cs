@@ -48,8 +48,8 @@ public class CameraService
 
     public async Task<CameraConfigDto> CreateCameraAsync(Guid householdId, UpdateCameraConfigRequest req)
     {
-        if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode))
-            throw new AppException("Modo inválido. Usa 'DirectRtsp' o 'RtmpRelay'.");
+        if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
+            throw new AppException("Modo inválido. Usa 'DirectRtsp', 'RtmpRelay' o 'MobileWebRtc'.");
 
         var isFirst = !await _db.CameraConfigs.AnyAsync(c => c.HouseholdId == householdId);
         var makeDefault = req.IsDefault || isFirst;
@@ -69,21 +69,21 @@ public class CameraService
             Name = string.IsNullOrWhiteSpace(req.Name) ? "Cámara" : req.Name.Trim(),
             IsDefault = makeDefault,
             StreamMode = mode,
-            CameraIp = isDemo ? "DEMO" : req.CameraIp?.Trim(),
+            CameraIp = mode == StreamMode.MobileWebRtc ? null : isDemo ? "DEMO" : req.CameraIp?.Trim(),
             CameraPort = req.CameraPort > 0 ? req.CameraPort : 554,
             CameraPath = string.IsNullOrWhiteSpace(req.CameraPath) ? null : req.CameraPath.Trim(),
             CameraUsername = string.IsNullOrWhiteSpace(req.CameraUsername) ? null : req.CameraUsername,
             CameraPassword = string.IsNullOrWhiteSpace(req.CameraPassword) ? null : req.CameraPassword,
             CustomHlsUrl = string.IsNullOrWhiteSpace(req.CustomHlsUrl) ? null : req.CustomHlsUrl.Trim(),
-            StreamKey = isDemo ? "demo" : Guid.NewGuid().ToString("N")[..12],
-            IsConfigured = isDemo || !string.IsNullOrEmpty(req.CameraIp),
+            StreamKey = isDemo && mode != StreamMode.MobileWebRtc ? "demo" : Guid.NewGuid().ToString("N")[..12],
+            IsConfigured = mode == StreamMode.MobileWebRtc || isDemo || !string.IsNullOrEmpty(req.CameraIp),
         };
 
         _db.CameraConfigs.Add(cam);
         await _db.SaveChangesAsync();
 
         // Regenerate MediaMTX config + try API reload
-        await SyncMediaMtxAsync();
+        if (cam.StreamMode != StreamMode.MobileWebRtc) await SyncMediaMtxAsync();
 
         return ToDto(cam);
     }
@@ -96,12 +96,13 @@ public class CameraService
             .FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
             ?? throw AppException.NotFound("Cámara no encontrada");
 
-        if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode))
-            throw new AppException("Modo inválido. Usa 'DirectRtsp' o 'RtmpRelay'.");
+        if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
+            throw new AppException("Modo inválido. Usa 'DirectRtsp', 'RtmpRelay' o 'MobileWebRtc'.");
 
         if (!string.IsNullOrWhiteSpace(req.Name)) cam.Name = req.Name.Trim();
+        var previousMode = cam.StreamMode;
         cam.StreamMode = mode;
-        cam.CameraIp = req.CameraIp?.Trim();
+        cam.CameraIp = mode == StreamMode.MobileWebRtc ? null : req.CameraIp?.Trim();
         cam.CameraPort = req.CameraPort > 0 ? req.CameraPort : 554;
         cam.CameraPath = string.IsNullOrWhiteSpace(req.CameraPath) ? null : req.CameraPath.Trim();
         cam.CameraUsername = string.IsNullOrWhiteSpace(req.CameraUsername) ? null : req.CameraUsername;
@@ -110,7 +111,13 @@ public class CameraService
             cam.CameraPassword = req.CameraPassword.Length == 0 ? null : req.CameraPassword;
 
         cam.CustomHlsUrl = string.IsNullOrWhiteSpace(req.CustomHlsUrl) ? null : req.CustomHlsUrl.Trim();
-        cam.IsConfigured = !string.IsNullOrEmpty(cam.CameraIp);
+        cam.IsConfigured = mode == StreamMode.MobileWebRtc || !string.IsNullOrEmpty(cam.CameraIp);
+        if (mode == StreamMode.MobileWebRtc)
+        {
+            cam.CameraPath = cam.CameraUsername = cam.CameraPassword = cam.CustomHlsUrl = null;
+            if (previousMode != mode || string.IsNullOrEmpty(cam.StreamKey) || cam.StreamKey == "demo")
+                cam.StreamKey = Guid.NewGuid().ToString("N")[..12];
+        }
 
         // Cámara DEMO (IP "DEMO") → apunta al stream de demostración fijo.
         if (string.Equals(cam.CameraIp, "DEMO", StringComparison.OrdinalIgnoreCase))
@@ -130,7 +137,7 @@ public class CameraService
         await _db.SaveChangesAsync();
 
         // Regenerate MediaMTX config + try API reload
-        await SyncMediaMtxAsync();
+        if (cam.StreamMode != StreamMode.MobileWebRtc) await SyncMediaMtxAsync();
 
         return ToDto(cam);
     }
@@ -154,6 +161,16 @@ public class CameraService
             cam.ZonesJson = JsonSerializer.Serialize(new { version = 1, zones = req.Zones });
         }
 
+        cam.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return ToDto(cam);
+    }
+
+    public async Task<CameraConfigDto> UpdateNotificationsAsync(Guid householdId, Guid cameraId, bool enabled)
+    {
+        var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
+            ?? throw AppException.NotFound("Cámara no encontrada");
+        cam.NotificationsEnabled = enabled;
         cam.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return ToDto(cam);
@@ -186,7 +203,7 @@ public class CameraService
         }
 
         // Regenerate MediaMTX config (path is now absent from the file)
-        await SyncMediaMtxAsync();
+        if (cam.StreamMode != StreamMode.MobileWebRtc) await SyncMediaMtxAsync();
     }
 
     // ── AI Backend config ─────────────────────────────────────────────────────
@@ -301,7 +318,8 @@ public class CameraService
         cam.IsConfigured,
         cam.LastVerifiedAt,
         BuildMediaMtxRtspViewUrl(cam),
-        cam.ZonesJson
+        cam.ZonesJson,
+        cam.NotificationsEnabled
     );
 
     private static string? BuildRtspUrl(CameraConfig cam)
