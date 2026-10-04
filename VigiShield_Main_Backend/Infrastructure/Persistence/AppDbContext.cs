@@ -39,6 +39,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SecurityEvent>(e =>
         {
             e.HasKey(ev => ev.Id);
+            e.Property(ev => ev.NotificationsEnabled).HasDefaultValue(true);
             e.Property(ev => ev.EventType).HasConversion<string>();
             e.Property(ev => ev.RiskLevel).HasConversion<string>();
             e.HasOne(ev => ev.Household)
@@ -75,6 +76,7 @@ public class AppDbContext : DbContext
         {
             e.HasKey(c => c.Id);
             e.Property(c => c.StreamMode).HasConversion<string>();
+            e.Property(c => c.NotificationsEnabled).HasDefaultValue(true);
             e.HasOne(c => c.Household)
              .WithMany(h => h.CameraConfigs)
              .HasForeignKey(c => c.HouseholdId)

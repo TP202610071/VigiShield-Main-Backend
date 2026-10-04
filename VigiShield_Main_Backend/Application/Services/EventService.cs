@@ -86,10 +86,16 @@ public class EventService
     /// real ingest and the simulate tool.</summary>
     private async Task<EventDto> CreateAndNotifyAsync(SecurityEvent ev)
     {
+        if (ev.CameraId is Guid cameraId)
+        {
+            var camera = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == ev.HouseholdId)
+                ?? throw AppException.NotFound("Cámara no encontrada");
+            ev.NotificationsEnabled = camera.NotificationsEnabled;
+        }
         _db.Events.Add(ev);
         await _db.SaveChangesAsync();
 
-        if (ev.RiskLevel >= RiskLevel.Medium)
+        if (ev.NotificationsEnabled && ev.RiskLevel >= RiskLevel.Medium)
         {
             var (date, time) = WhatsAppService.LocalParts(ev.CreatedAt);
             var camera = ev.CameraName ?? "Cámara";
@@ -257,5 +263,5 @@ public class EventService
     private static EventDto ToDto(SecurityEvent ev) => new(
         ev.Id, ev.HouseholdId, ev.CameraId, ev.CameraName, ev.EventType.ToString(),
         ev.ConfidenceScore, ev.ImageCapturePath, ev.VideoClipPath,
-        ev.PersonName, ev.RiskLevel.ToString(), ev.IsNighttime, ev.CreatedAt);
+        ev.PersonName, ev.RiskLevel.ToString(), ev.IsNighttime, ev.CreatedAt, ev.NotificationsEnabled);
 }

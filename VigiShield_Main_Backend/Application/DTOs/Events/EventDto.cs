@@ -12,5 +12,6 @@ public record EventDto(
     string? PersonName,
     string RiskLevel,
     bool IsNighttime,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool NotificationsEnabled = true
 );
