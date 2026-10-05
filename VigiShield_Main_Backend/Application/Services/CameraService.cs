@@ -46,10 +46,33 @@ public class CameraService
 
     // ── Create ────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Una cámara IP necesita al menos su dirección y un puerto válido. Antes se
+    /// aceptaba vacía y quedaba registrada como «no configurada», sin forma de
+    /// verla; la app tampoco lo impedía.
+    /// </summary>
+    private static void ValidarCamaraIp(StreamMode mode, UpdateCameraConfigRequest req)
+    {
+        if (req.Name is { Length: > 60 })
+            throw new AppException("El nombre de la cámara es demasiado largo (máximo 60 caracteres).");
+        if (mode == StreamMode.MobileWebRtc) return;
+        var ip = req.CameraIp?.Trim();
+        if (string.IsNullOrEmpty(ip))
+            throw new AppException("Escribe la dirección IP de la cámara.");
+        var esDemo = string.Equals(ip, "DEMO", StringComparison.OrdinalIgnoreCase);
+        var esIp = System.Net.IPAddress.TryParse(ip, out _);
+        var esHost = Uri.CheckHostName(ip) == UriHostNameType.Dns && ip.Contains('.');
+        if (!esDemo && !esIp && !esHost)
+            throw new AppException("La dirección IP no es válida. Ejemplo: 192.168.1.82");
+        if (req.CameraPort is < 1 or > 65535)
+            throw new AppException("El puerto debe ser un número entre 1 y 65535.");
+    }
+
     public async Task<CameraConfigDto> CreateCameraAsync(Guid householdId, UpdateCameraConfigRequest req)
     {
         if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
             throw new AppException("Modo inválido. Usa 'DirectRtsp', 'RtmpRelay' o 'MobileWebRtc'.");
+        ValidarCamaraIp(mode, req);
 
         var isFirst = !await _db.CameraConfigs.AnyAsync(c => c.HouseholdId == householdId);
         var makeDefault = req.IsDefault || isFirst;
@@ -98,6 +121,7 @@ public class CameraService
 
         if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
             throw new AppException("Modo inválido. Usa 'DirectRtsp', 'RtmpRelay' o 'MobileWebRtc'.");
+        ValidarCamaraIp(mode, req);
 
         if (!string.IsNullOrWhiteSpace(req.Name)) cam.Name = req.Name.Trim();
         var previousMode = cam.StreamMode;

@@ -55,6 +55,23 @@ public class CameraTests
         var error = await Assert.ThrowsAsync<VigiShield.Common.Exceptions.AppException>(() => task);
         Assert.Equal(404, error.StatusCode);
     }
+    [Theory]
+    [InlineData(null, 554)]
+    [InlineData("", 554)]
+    [InlineData("no es una ip", 554)]
+    [InlineData("192.168.1.82", 0)]
+    [InlineData("192.168.1.82", 70000)]
+    public async Task Ip_camera_requires_a_valid_address_and_port(string? ip, int port)
+    {
+        await using var fixture = new TestDb(); var db = fixture.Db;
+        var home = new Household(); db.Add(home); await db.SaveChangesAsync();
+        var config = new ConfigurationBuilder().Build();
+        var service = new CameraService(db, config, new MediaMtxService(new FakeFactory(), config, NullLogger<MediaMtxService>.Instance));
+        var error = await Assert.ThrowsAsync<VigiShield.Common.Exceptions.AppException>(() =>
+            service.CreateCameraAsync(home.Id, new UpdateCameraConfigRequest("Patio", "DirectRtsp", ip, port)));
+        Assert.Equal(400, error.StatusCode);
+        Assert.Empty(db.CameraConfigs);
+    }
     [Fact]
     public async Task Zones_are_stored_in_camel_case_for_the_app_and_the_ai()
     {

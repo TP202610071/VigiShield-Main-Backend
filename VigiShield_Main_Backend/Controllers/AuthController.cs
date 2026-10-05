@@ -39,6 +39,14 @@ public class AuthController : ControllerBase
         return Ok(await _authService.GetProfileAsync(User.GetUserId()));
     }
 
+    /// <summary>Acepta los Términos y la Política de privacidad (usuarios ya registrados).</summary>
+    [HttpPost("accept-terms")]
+    [Authorize]
+    public async Task<ActionResult<UserProfileDto>> AcceptTerms([FromBody] AcceptTermsRequest request)
+    {
+        return Ok(await _authService.AcceptTermsAsync(User.GetUserId(), request.Version));
+    }
+
     [HttpPut("profile")]
     [Authorize]
     public async Task<ActionResult<UserProfileDto>> UpdateProfile([FromBody] UpdateProfileRequest request)

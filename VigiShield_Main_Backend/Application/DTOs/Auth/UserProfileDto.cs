@@ -8,5 +8,7 @@ public record UserProfileDto(
     Guid HouseholdId,
     string? WhatsAppNumber,
     string? AvatarPath,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime? TermsAcceptedAt = null,
+    string? TermsVersion = null
 );

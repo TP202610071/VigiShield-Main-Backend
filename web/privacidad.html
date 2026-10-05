@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidad · VigiShield</title>
+<link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+<header><div class="wrap top">
+  <a class="brand" href="/">VigiShield</a>
+  <nav><a href="/">Inicio</a><a href="/terminos">Términos</a><a href="/privacidad" aria-current="page">Privacidad</a></nav>
+</div></header>
+<main class="wrap">
+  <h1>Política de privacidad</h1>
+  <p class="meta">Versión 2026-10-05 · Vigente desde el 5 de octubre de 2026</p>
+
+  <p>Esta política explica qué datos personales trata VigiShield, para qué, dónde se guardan, con quién se
+    comparten y qué derechos tienes. Se rige por la Ley N.° 29733, Ley de Protección de Datos Personales del
+    Perú, y su reglamento.</p>
+
+  <h2>1. Responsable</h2>
+  <p>VigiShield es un prototipo desarrollado como proyecto de tesis de Ingeniería de Software en la
+    Universidad Peruana de Ciencias Aplicadas (UPC) por Diego Mauricio Castro Soto y Erick Hernan Ruiz Torres,
+    responsables del tratamiento de los datos. Contacto:
+    <a href="mailto:contacto@vigishield.app">contacto@vigishield.app</a>.</p>
+
+  <h2>2. Qué datos tratamos</h2>
+  <div class="tabla"><table>
+    <tr><th>Dato</th><th>Para qué</th><th>Origen</th></tr>
+    <tr><td>Nombre, correo y contraseña (guardada cifrada, nunca en texto plano)</td><td>Crear tu cuenta e iniciar sesión</td><td>Tú, al registrarte</td></tr>
+    <tr><td>Dirección de la vivienda</td><td>Identificar el hogar que se vigila</td><td>Tú, al registrarte</td></tr>
+    <tr><td>Número de WhatsApp (opcional)</td><td>Enviarte las alertas</td><td>Tú, en tu perfil</td></tr>
+    <tr><td>Foto de perfil (opcional)</td><td>Mostrarla en la aplicación</td><td>Tú</td></tr>
+    <tr><td>Video de tus cámaras o de tu celular usado como cámara</td><td>Analizarlo en tiempo real para detectar personas y riesgos</td><td>Tus cámaras</td></tr>
+    <tr><td>Fotos y clips cortos de los eventos detectados</td><td>Mostrarte la evidencia de cada alerta</td><td>Generados por el sistema</td></tr>
+    <tr><td>Fotos de rostros autorizados y sus rasgos faciales (dato biométrico)</td><td>Reconocer a las personas autorizadas y no alertarte por ellas</td><td>Tú, al registrarlas</td></tr>
+    <tr><td>Zonas de interés y configuración de alertas</td><td>Ajustar la detección a tu vivienda</td><td>Tú</td></tr>
+    <tr><td>Número de emergencia (opcional)</td><td>Llamarlo desde tu propio teléfono si no desactivas una alerta de emergencia</td><td>Tú, guardado solo en tu teléfono</td></tr>
+  </table></div>
+  <p>No recopilamos tu ubicación, tus contactos ni audio: el video se transmite sin sonido.</p>
+
+  <h2>3. Datos sensibles: rostros</h2>
+  <p>Los rasgos faciales son datos biométricos, considerados sensibles por la ley. Solo se tratan si registras
+    a una persona autorizada, y para ello necesitas su consentimiento expreso (o el de su padre, madre o
+    tutor, si es menor de edad). Las personas que pasen frente a la cámara sin estar registradas no se
+    identifican: el sistema solo indica que se trata de alguien desconocido.</p>
+
+  <h2>4. Cómo se procesa el video</h2>
+  <p>El video se analiza en tiempo real en nuestros servidores y <strong>no se graba de forma continua</strong>.
+    Solo se guardan una foto y un clip de unos 12 segundos cuando se detecta un evento. Eres responsable de
+    ubicar tus cámaras de forma que respeten la privacidad de terceros (ver los
+    <a href="/terminos">Términos</a>).</p>
+
+  <h2>5. Dónde se guardan y quién los procesa</h2>
+  <p>Usamos proveedores de nube que actúan como encargados del tratamiento. Todos se encuentran fuera del Perú,
+    por lo que existe <strong>transferencia internacional de datos</strong>:</p>
+  <div class="tabla"><table>
+    <tr><th>Proveedor</th><th>Uso</th><th>Ubicación</th></tr>
+    <tr><td>Microsoft Azure</td><td>Análisis de video con inteligencia artificial</td><td>Estados Unidos</td></tr>
+    <tr><td>Oracle Cloud</td><td>Servidor de la aplicación y fotos de rostros autorizados</td><td>Estados Unidos</td></tr>
+    <tr><td>Supabase</td><td>Base de datos de la cuenta y de los eventos</td><td>Estados Unidos</td></tr>
+    <tr><td>Cloudflare</td><td>Almacenamiento de fotos y clips de eventos</td><td>Red global</td></tr>
+    <tr><td>Meta (WhatsApp)</td><td>Envío de alertas</td><td>Estados Unidos</td></tr>
+  </table></div>
+  <p>No vendemos ni cedemos tus datos a terceros con fines comerciales ni publicitarios.</p>
+
+  <h2>6. Uso académico</h2>
+  <p>Al ser un proyecto de tesis, usamos métricas agregadas y anónimas del funcionamiento del sistema (por
+    ejemplo, cuántos eventos se detectaron o cuánto tardaron las alertas) para validar la investigación.
+    Nunca publicamos imágenes, nombres ni datos que te identifiquen.</p>
+
+  <h2>7. Cuánto tiempo los conservamos</h2>
+  <p>Conservamos tus datos mientras tu cuenta esté activa. Si pides eliminar tu cuenta, borramos tus datos,
+    rostros registrados, eventos, fotos y clips en un plazo máximo de 30 días, salvo que la ley exija
+    conservarlos. Al finalizar el proyecto académico se eliminarán todas las cuentas de prueba.</p>
+
+  <h2>8. Seguridad</h2>
+  <p>Las comunicaciones viajan cifradas (HTTPS/TLS), las contraseñas se guardan con un hash irreversible y el
+    acceso al video exige una sesión válida. Ningún sistema es infalible, pero aplicamos medidas razonables
+    para proteger tu información.</p>
+
+  <h2>9. Tus derechos</h2>
+  <p>Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición (derechos ARCO), así como
+    revocar tu consentimiento en cualquier momento, escribiendo a
+    <a href="mailto:contacto@vigishield.app">contacto@vigishield.app</a> desde el correo de tu cuenta.
+    Responderemos en los plazos que establece la ley. Si consideras que no se atendió tu solicitud, puedes
+    acudir a la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos
+    Humanos.</p>
+
+  <h2>10. Menores de edad</h2>
+  <p>VigiShield está dirigido a mayores de 18 años.</p>
+
+  <h2>11. Cambios</h2>
+  <p>Si cambiamos esta política, publicaremos la nueva versión en esta página y te pediremos que la aceptes en
+    la aplicación.</p>
+</main>
+<footer><div class="wrap">VigiShield · Proyecto de tesis UPC · <a href="mailto:contacto@vigishield.app">contacto@vigishield.app</a></div></footer>
+</body>
+</html>

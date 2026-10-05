@@ -18,4 +18,8 @@ public class User
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>Cuándo aceptó los Términos y la Política de privacidad (Ley 29733). Null = aún no.</summary>
+    public DateTime? TermsAcceptedAt { get; set; }
+    /// <summary>Versión de los términos aceptados, p. ej. "2026-10-05".</summary>
+    public string? TermsVersion { get; set; }
 }

@@ -48,7 +48,9 @@ public class AuthService
             Name = request.Name,
             Role = UserRole.Primary,
             HouseholdId = household.Id,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            TermsAcceptedAt = string.IsNullOrWhiteSpace(request.TermsVersion) ? null : DateTime.UtcNow,
+            TermsVersion = string.IsNullOrWhiteSpace(request.TermsVersion) ? null : request.TermsVersion.Trim()
         };
 
         household.PrimaryUserId = user.Id;
@@ -287,7 +289,19 @@ public class AuthService
 
     private static UserProfileDto ToProfileDto(User user) => new(
         user.Id, user.Email, user.Name, user.Role.ToString(),
-        user.HouseholdId, user.WhatsAppNumber, user.AvatarPath, user.CreatedAt);
+        user.HouseholdId, user.WhatsAppNumber, user.AvatarPath, user.CreatedAt,
+        user.TermsAcceptedAt, user.TermsVersion);
+
+    /// <summary>Registra la aceptación de los Términos y la Política de privacidad.</summary>
+    public async Task<UserProfileDto> AcceptTermsAsync(Guid userId, string version)
+    {
+        var user = await _db.Users.FindAsync(userId)
+            ?? throw AppException.NotFound("Usuario no encontrado");
+        user.TermsAcceptedAt = DateTime.UtcNow;
+        user.TermsVersion = version.Trim();
+        await _db.SaveChangesAsync();
+        return ToProfileDto(user);
+    }
 
     // ── Avatar ────────────────────────────────────────────────────────────────
 
