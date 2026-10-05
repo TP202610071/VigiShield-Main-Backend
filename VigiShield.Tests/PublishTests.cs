@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using VigiShield.Common.Exceptions;
 using VigiShield.Domain.Entities;
 using VigiShield.Domain.Enums;
@@ -148,7 +149,7 @@ public class PublishTests
             }
             var settings = new Dictionary<string,string?> { ["MediaMtx:WhipBaseUrl"] = "https://gateway.invalid/live/", ["MediaMtx:WhipGatewayKey"] = Guid.NewGuid().ToString("N") };
             if (overrides != null) foreach (var pair in overrides) settings[pair.Key] = pair.Value;
-            Service = new(provider.GetRequiredService<IServiceScopeFactory>(), Http, new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+            Service = new(provider.GetRequiredService<IServiceScopeFactory>(), Http, new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), NullLogger<WhipPublishService>.Instance);
         }
         public async Task EditCamera(Action<CameraConfig> edit)
         {

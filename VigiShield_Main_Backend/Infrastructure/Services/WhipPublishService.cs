@@ -10,8 +10,32 @@ namespace VigiShield.Infrastructure.Services;
 
 // One registry per API process. Deploy with one API replica; gateway must also reject
 // replacing an existing publisher (overridePublisher: false) across process restarts.
-public sealed class WhipPublishService(IServiceScopeFactory scopes, IHttpClientFactory http, IConfiguration config) : BackgroundService
+public sealed class WhipPublishService(IServiceScopeFactory scopes, IHttpClientFactory http,
+    IConfiguration config, ILogger<WhipPublishService> logger) : BackgroundService
 {
+    /// <summary>
+    /// Rechaza la publicacion dejando constancia del motivo.
+    ///
+    /// Un 400 en el telefono solo dice "no se pudo"; sin esta traza hay que
+    /// adivinar cual de las validaciones salto. Del SDP se registra SOLO la
+    /// primera linea y las lineas m=, que es lo que determina el rechazo: el
+    /// resto lleva credenciales ICE y huellas DTLS y no debe ir al registro.
+    /// </summary>
+    private AppException Rechazar(Guid cameraId, string motivo, string? sdp = null)
+    {
+        if (sdp is null) logger.LogWarning("Publicacion rechazada ({Camara}): {Motivo}", cameraId, motivo);
+        else
+        {
+            var lineas = sdp.Replace("\r\n", "\n").Split('\n');
+            var primera = lineas.Length > 0 ? lineas[0] : "";
+            var medios = string.Join(" | ", lineas.Where(l => l.StartsWith("m=")));
+            logger.LogWarning(
+                "Publicacion rechazada ({Camara}): {Motivo}. bytes={Bytes} primera='{Primera}' medios='{Medios}'",
+                cameraId, motivo, Encoding.UTF8.GetByteCount(sdp), primera, medios);
+        }
+        return new AppException(motivo);
+    }
+
     private sealed record Session(Guid Id, Guid Household, Guid Camera, string StreamKey, Uri Location, string GatewayKey, DateTimeOffset Expires);
     private readonly Dictionary<Guid, Session> sessions = [];
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -29,7 +53,7 @@ public sealed class WhipPublishService(IServiceScopeFactory scopes, IHttpClientF
             var camera = await db.CameraConfigs.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId, ct)
                 ?? throw AppException.NotFound("Cámara no encontrada");
             if (camera.StreamMode != StreamMode.MobileWebRtc || !camera.IsConfigured)
-                throw new AppException("La cámara no es una fuente móvil configurada.");
+                throw Rechazar(cameraId, "La cámara no es una fuente móvil configurada.");
             if (sessions.Values.Any(s => s.Camera == cameraId || s.StreamKey == camera.StreamKey))
                 throw AppException.Conflict("La cámara ya tiene una publicación activa.");
             var key = config["MediaMtx:WhipGatewayKey"];
@@ -40,13 +64,13 @@ public sealed class WhipPublishService(IServiceScopeFactory scopes, IHttpClientF
                 || key.Any(char.IsControl))
                 throw new AppException("Publicación móvil no configurada.", 503);
             if (string.IsNullOrWhiteSpace(sdp) || Encoding.UTF8.GetByteCount(sdp) > 65536 || !sdp.StartsWith("v=0\r\n") && !sdp.StartsWith("v=0\n"))
-                throw new AppException("SDP inválido.");
+                throw Rechazar(cameraId, "SDP inválido.", sdp);
             var media = sdp.Replace("\r\n", "\n").Split('\n').Where(l => l.StartsWith("m=")).ToArray();
             if (media.Length != 1 || !media[0].StartsWith("m=video ") || sdp.Contains('\0'))
-                throw new AppException("Solo se permite video.");
+                throw Rechazar(cameraId, "Solo se permite video.", sdp);
             if (sessions.Count >= 256) throw new AppException("Capacidad de publicación alcanzada.", 503);
             if (string.IsNullOrEmpty(camera.StreamKey) || camera.StreamKey.Length > 64 || !camera.StreamKey.All(char.IsAsciiLetterOrDigit))
-                throw new AppException("Clave de cámara inválida.", 400);
+                throw Rechazar(cameraId, "Clave de cámara inválida.");
             var endpoint = new Uri(baseUrl, camera.StreamKey + "/whip");
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
             request.Headers.Add("X-VigiShield-Publish-Key", key);
