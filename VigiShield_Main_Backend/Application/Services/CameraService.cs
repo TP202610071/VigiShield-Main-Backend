@@ -166,6 +166,22 @@ public class CameraService
         return ToDto(cam);
     }
 
+    /// <summary>
+    /// Enciende o apaga el procesamiento de IA de una cámara.
+    ///
+    /// Apagarla es la única forma de que deje de consumir: el motor analiza
+    /// cada cámara configurada la vea alguien o no.
+    /// </summary>
+    public async Task<CameraConfigDto> UpdateActiveAsync(Guid householdId, Guid cameraId, bool enabled)
+    {
+        var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
+            ?? throw AppException.NotFound("Cámara no encontrada");
+        cam.IsActive = enabled;
+        cam.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return ToDto(cam);
+    }
+
     public async Task<CameraConfigDto> UpdateNotificationsAsync(Guid householdId, Guid cameraId, bool enabled)
     {
         var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
@@ -211,8 +227,9 @@ public class CameraService
     /// <summary>All configured cameras across every household — for the Python AI service.</summary>
     public async Task<List<object>> GetAllAiConfigAsync()
     {
+        // Solo las activas: una camara desactivada no debe costar CPU.
         var cameras = await _db.CameraConfigs
-            .Where(c => c.IsConfigured)
+            .Where(c => c.IsConfigured && c.IsActive)
             .ToListAsync();
 
         var rtspPort = _config["MediaMtx:RtspPort"] ?? "8554";
@@ -319,7 +336,8 @@ public class CameraService
         cam.LastVerifiedAt,
         BuildMediaMtxRtspViewUrl(cam),
         cam.ZonesJson,
-        cam.NotificationsEnabled
+        cam.NotificationsEnabled,
+        cam.IsActive
     );
 
     private static string? BuildRtspUrl(CameraConfig cam)

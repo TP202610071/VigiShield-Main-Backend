@@ -21,6 +21,12 @@ public static class AlertableEvents
     /// (UCF-Crime), no de lo que hace el producto. Se quitaron dos grupos:
     ///  · los que el motor NUNCA emite (Climbing, Vandalism, LowConfidenceFace,
     ///    RecurrentUnknownFace): solo existían en el diccionario de etiquetas;
+    /// Segundo recorte (2026-10-05), con datos: de los 2054 eventos registrados
+    /// solo han ocurrido CINCO tipos, y los cuatro que quedaban sin ocurrir eran
+    /// justo los que produce el clasificador de actividades, apagado desde hace
+    /// tiempo (ACTIVITY_ENABLED=false). Ofrecer un interruptor para algo que no
+    /// puede pasar es prometer una deteccion que no existe.
+    ///
     ///  · los que la clase del modelo contempla pero no se sostienen en una
     ///    puerta de casa (Explosion, Arson, Roadaccidents, Arrest, Abuse,
     ///    Assault, Shoplifting). El detector ya no los emite: Shoplifting cae
@@ -35,11 +41,6 @@ public static class AlertableEvents
         EventType.Tailgating,
         EventType.SuspiciousIntent,
         EventType.WeaponDetected,
-        EventType.ForcedAccessAttempt,
-        EventType.PhysicalAggression,
-        EventType.Burglary,
-        EventType.Robbery,
-        EventType.Stealing,
     };
 
     /// <summary>Tipos que gobierna cada interruptor antiguo (para recalcularlos).</summary>

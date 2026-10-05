@@ -136,6 +136,19 @@ public class StreamController : ControllerBase
         return Ok(await _cameraControl.GetLanAccessAsync(User.GetHouseholdId(), cameraId));
     }
 
+    /// <summary>
+    /// Enciende o apaga el procesamiento de IA de una cámara.
+    /// Desactivarla es la única forma de que deje de consumir recursos.
+    /// </summary>
+    [HttpPatch("cameras/{cameraId:guid}/active")]
+    [Authorize]
+    public async Task<ActionResult<CameraConfigDto>> UpdateActive(Guid cameraId, [FromBody] UpdateNotificationsRequest request)
+    {
+        if (!User.IsPrimaryResident()) return Forbid();
+        if (!request.Enabled.HasValue) return BadRequest();
+        return Ok(await _cameraService.UpdateActiveAsync(User.GetHouseholdId(), cameraId, request.Enabled.Value));
+    }
+
     /// <summary>Apply image/video settings to the camera. Primary residents only.</summary>
     [HttpPut("cameras/{cameraId:guid}/control")]
     [Authorize]

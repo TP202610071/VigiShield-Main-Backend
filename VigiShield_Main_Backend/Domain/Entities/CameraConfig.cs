@@ -41,6 +41,14 @@ public class CameraConfig
 
     // ── Status ───────────────────────────────────────────────────────────────
     public bool NotificationsEnabled { get; set; } = true;
+    /// <summary>
+    /// Si esta en false, la IA deja de procesar esta camara.
+    ///
+    /// Es la unica palanca real de consumo: el motor analiza cada camara
+    /// configurada la vea alguien o no, y cuesta ~80% de un nucleo por camara.
+    /// Retransmitir, en cambio, es casi gratis.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
     public bool IsConfigured { get; set; }
     public DateTime? LastVerifiedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

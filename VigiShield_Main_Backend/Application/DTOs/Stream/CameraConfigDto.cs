@@ -21,7 +21,9 @@ public record CameraConfigDto(
     string? MediaMtxRtspUrl,
     // Zonas de interés (ROI) dibujadas por el usuario — JSON crudo (o null).
     string? ZonesJson = null,
-    bool NotificationsEnabled = true
+    bool NotificationsEnabled = true,
+    // false = la IA no la procesa; el usuario ve que está desactivada.
+    bool IsActive = true
 );
 
 /// <summary>
