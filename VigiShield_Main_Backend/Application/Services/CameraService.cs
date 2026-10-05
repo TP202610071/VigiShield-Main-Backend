@@ -146,6 +146,8 @@ public class CameraService
 
     /// <summary>Guarda las zonas dibujadas por el usuario para una cámara.
     /// Lista vacía/null borra las zonas (vuelve al comportamiento sin contexto).</summary>
+    private static readonly JsonSerializerOptions ZonasJson = new(JsonSerializerDefaults.Web);
+
     public async Task<CameraConfigDto> UpdateZonesAsync(Guid householdId, Guid cameraId, UpdateZonesRequest req)
     {
         var cam = await _db.CameraConfigs
@@ -158,7 +160,10 @@ public class CameraService
         }
         else
         {
-            cam.ZonesJson = JsonSerializer.Serialize(new { version = 1, zones = req.Zones });
+            // camelCase como el resto de la API: con las opciones por defecto salía
+            // {"Id","Type","Polygon"} y ni la app ni la IA (que leen en minúsculas)
+            // encontraban las zonas; se guardaban pero quedaban sin efecto.
+            cam.ZonesJson = JsonSerializer.Serialize(new { version = 1, zones = req.Zones }, ZonasJson);
         }
 
         cam.UpdatedAt = DateTime.UtcNow;

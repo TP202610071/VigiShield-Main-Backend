@@ -55,6 +55,20 @@ public class CameraTests
         var error = await Assert.ThrowsAsync<VigiShield.Common.Exceptions.AppException>(() => task);
         Assert.Equal(404, error.StatusCode);
     }
+    [Fact]
+    public async Task Zones_are_stored_in_camel_case_for_the_app_and_the_ai()
+    {
+        await using var fixture = new TestDb(); var db = fixture.Db;
+        var home = new Household(); var cam = new CameraConfig { Household = home };
+        db.Add(cam); await db.SaveChangesAsync();
+        var config = new ConfigurationBuilder().Build();
+        var service = new CameraService(db, config, new MediaMtxService(new FakeFactory(), config, NullLogger<MediaMtxService>.Instance));
+        var zona = new ZoneDto("z1", "door", "Puerta", [[0.1, 0.1], [0.5, 0.1], [0.5, 0.6]]);
+        var dto = await service.UpdateZonesAsync(home.Id, cam.Id, new UpdateZonesRequest([zona]));
+        Assert.Contains("\"type\":\"door\"", dto.ZonesJson);
+        Assert.Contains("\"polygon\":[[0.1,0.1]", dto.ZonesJson);
+        Assert.DoesNotContain("\"Type\"", dto.ZonesJson);
+    }
 }
 public class FakeFactory : IHttpClientFactory
 {
