@@ -26,8 +26,6 @@ public class PublishTests
         Assert.Equal("https://gateway.invalid/live/abcdef123456/whip", f.Http.Requests[0].Url);
         Assert.Equal(Offer, f.Http.Requests[0].Body);
         Assert.True(f.Http.Requests[0].HasKey);
-        var duplicate = await Assert.ThrowsAsync<AppException>(() => f.Service.PublishAsync(f.Home, f.Camera, Offer));
-        Assert.Equal(409, duplicate.StatusCode);
         var forbidden = await Assert.ThrowsAsync<AppException>(() => f.Service.DeleteAsync(Guid.NewGuid(), f.Camera, result.SessionId));
         Assert.Equal(404, forbidden.StatusCode); Assert.Single(f.Http.Requests);
         await f.Service.DeleteAsync(f.Home, f.Camera, result.SessionId);
@@ -35,6 +33,19 @@ public class PublishTests
         Assert.Equal("https://gateway.invalid/live/abcdef123456/whip/session", f.Http.Requests[1].Url);
         Assert.True(f.Http.Requests[1].HasKey);
         await f.Service.PublishAsync(f.Home, f.Camera, Offer);
+    }
+    [Fact]
+    public async Task Republishing_replaces_an_orphaned_session()
+    {
+        // El telefono se cerro sin colgar: su sesion sigue registrada.
+        await using var f = new Fixture();
+        var orphan = await f.Service.PublishAsync(f.Home, f.Camera, Offer);
+        var fresh = await f.Service.PublishAsync(f.Home, f.Camera, Offer);
+        Assert.NotEqual(orphan.SessionId, fresh.SessionId);
+        Assert.Equal(["POST", "DELETE", "POST"], f.Http.Requests.Select(r => r.Method));
+        var gone = await Assert.ThrowsAsync<AppException>(() => f.Service.DeleteAsync(f.Home, f.Camera, orphan.SessionId));
+        Assert.Equal(404, gone.StatusCode);
+        await f.Service.DeleteAsync(f.Home, f.Camera, fresh.SessionId);
     }
     [Theory]
     [InlineData(null)]

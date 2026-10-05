@@ -54,8 +54,23 @@ public sealed class WhipPublishService(IServiceScopeFactory scopes, IHttpClientF
                 ?? throw AppException.NotFound("Cámara no encontrada");
             if (camera.StreamMode != StreamMode.MobileWebRtc || !camera.IsConfigured)
                 throw Rechazar(cameraId, "La cámara no es una fuente móvil configurada.");
-            if (sessions.Values.Any(s => s.Camera == cameraId || s.StreamKey == camera.StreamKey))
-                throw AppException.Conflict("La cámara ya tiene una publicación activa.");
+            // Un telefono que se cierra sin colgar (app matada, reinstalada, red
+            // caida) deja su sesion viva hasta 2 h y bloqueaba la camara. Quien
+            // vuelve a publicar ya paso la autorizacion del hogar, asi que gana
+            // la sesion nueva; solo si no se puede cerrar la vieja hay conflicto.
+            foreach (var vieja in sessions.Values.Where(s => s.Camera == cameraId || s.StreamKey == camera.StreamKey).ToArray())
+            {
+                try
+                {
+                    await DeleteUpstreamAsync(vieja, ct);
+                    sessions.Remove(vieja.Id);
+                    logger.LogInformation("Publicacion previa de {Camara} reemplazada", cameraId);
+                }
+                catch (Exception ex) when (ex is AppException or HttpRequestException or OperationCanceledException && !ct.IsCancellationRequested)
+                {
+                    throw AppException.Conflict("La cámara ya tiene una publicación activa.");
+                }
+            }
             var key = config["MediaMtx:WhipGatewayKey"];
             if (!Uri.TryCreate(config["MediaMtx:WhipBaseUrl"], UriKind.Absolute, out var baseUrl)
                 || baseUrl.Scheme != "https" || baseUrl.UserInfo.Length != 0
