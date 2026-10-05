@@ -23,7 +23,12 @@ public record CameraConfigDto(
     string? ZonesJson = null,
     bool NotificationsEnabled = true,
     // false = la IA no la procesa; el usuario ve que está desactivada.
-    bool IsActive = true
+    bool IsActive = true,
+    // Video de ejemplo: cámara interna, oculta en «Mis cámaras», con fin de sesión.
+    bool IsSample = false,
+    DateTime? SampleUntil = null,
+    string? SampleTitle = null,
+    string? SampleTitleEn = null
 );
 
 /// <summary>

@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<CameraConfig> CameraConfigs => Set<CameraConfig>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<SampleVideoSession> SampleVideoSessions => Set<SampleVideoSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +84,18 @@ public class AppDbContext : DbContext
              .OnDelete(DeleteBehavior.Cascade);
             // Non-unique index (multiple cameras per household allowed)
             e.HasIndex(c => c.HouseholdId);
+        });
+
+        modelBuilder.Entity<SampleVideoSession>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.VideoKey).HasMaxLength(32);
+            e.HasOne(s => s.Household)
+             .WithMany()
+             .HasForeignKey(s => s.HouseholdId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(s => s.HouseholdId);
+            e.HasIndex(s => s.VideoKey);
         });
 
         modelBuilder.Entity<Invitation>(e =>

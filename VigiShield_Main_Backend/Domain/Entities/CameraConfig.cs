@@ -49,6 +49,19 @@ public class CameraConfig
     /// Retransmitir, en cambio, es casi gratis.
     /// </summary>
     public bool IsActive { get; set; } = true;
+
+    // ── Video de ejemplo ─────────────────────────────────────────────────────
+    /// <summary>
+    /// Cámara interna del hogar que reproduce un video de ejemplo. No aparece
+    /// en «Mis cámaras» ni se edita; existe para que sus eventos tengan cámara.
+    /// </summary>
+    public bool IsSample { get; set; }
+    /// <summary>
+    /// Hasta cuándo dura la sesión del video de ejemplo. Pasada esta hora la IA
+    /// deja de analizarla y la app deja de mostrarla, sin tarea en segundo plano.
+    /// </summary>
+    public DateTime? SampleUntil { get; set; }
+
     public bool IsConfigured { get; set; }
     public DateTime? LastVerifiedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

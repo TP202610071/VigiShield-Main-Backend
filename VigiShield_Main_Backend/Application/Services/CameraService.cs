@@ -26,8 +26,9 @@ public class CameraService
 
     public async Task<List<CameraConfigDto>> GetCamerasAsync(Guid householdId)
     {
+        var ahora = DateTime.UtcNow;
         var cameras = await _db.CameraConfigs
-            .Where(c => c.HouseholdId == householdId)
+            .Where(c => c.HouseholdId == householdId && (!c.IsSample || c.SampleUntil > ahora))
             .OrderByDescending(c => c.IsDefault)
             .ThenBy(c => c.CreatedAt)
             .ToListAsync();
@@ -74,7 +75,7 @@ public class CameraService
             throw new AppException("Modo inválido. Usa 'DirectRtsp', 'RtmpRelay' o 'MobileWebRtc'.");
         ValidarCamaraIp(mode, req);
 
-        var isFirst = !await _db.CameraConfigs.AnyAsync(c => c.HouseholdId == householdId);
+        var isFirst = !await _db.CameraConfigs.AnyAsync(c => c.HouseholdId == householdId && !c.IsSample);
         var makeDefault = req.IsDefault || isFirst;
 
         if (makeDefault)
@@ -118,6 +119,7 @@ public class CameraService
         var cam = await _db.CameraConfigs
             .FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
             ?? throw AppException.NotFound("Cámara no encontrada");
+        NoEsEjemplo(cam);
 
         if (!Enum.TryParse<StreamMode>(req.StreamMode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
             throw new AppException("Modo inválido. Usa 'DirectRtsp', 'RtmpRelay' o 'MobileWebRtc'.");
@@ -177,6 +179,7 @@ public class CameraService
         var cam = await _db.CameraConfigs
             .FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
             ?? throw AppException.NotFound("Cámara no encontrada");
+        NoEsEjemplo(cam);
 
         if (req.Zones is null || req.Zones.Count == 0)
         {
@@ -205,6 +208,7 @@ public class CameraService
     {
         var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
             ?? throw AppException.NotFound("Cámara no encontrada");
+        NoEsEjemplo(cam);
         cam.IsActive = enabled;
         cam.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -215,6 +219,7 @@ public class CameraService
     {
         var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.Id == cameraId && c.HouseholdId == householdId)
             ?? throw AppException.NotFound("Cámara no encontrada");
+        NoEsEjemplo(cam);
         cam.NotificationsEnabled = enabled;
         cam.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -236,7 +241,7 @@ public class CameraService
         if (cam.IsDefault)
         {
             var next = await _db.CameraConfigs
-                .Where(c => c.HouseholdId == householdId)
+                .Where(c => c.HouseholdId == householdId && !c.IsSample)
                 .OrderBy(c => c.CreatedAt)
                 .FirstOrDefaultAsync();
 
@@ -256,9 +261,11 @@ public class CameraService
     /// <summary>All configured cameras across every household — for the Python AI service.</summary>
     public async Task<List<object>> GetAllAiConfigAsync()
     {
-        // Solo las activas: una camara desactivada no debe costar CPU.
+        // Solo las activas: una camara desactivada no debe costar CPU. El video
+        // de ejemplo, solo mientras dura su sesión.
+        var ahora = DateTime.UtcNow;
         var cameras = await _db.CameraConfigs
-            .Where(c => c.IsConfigured && c.IsActive)
+            .Where(c => c.IsConfigured && c.IsActive && (!c.IsSample || c.SampleUntil > ahora))
             .ToListAsync();
 
         var rtspPort = _config["MediaMtx:RtspPort"] ?? "8554";
@@ -288,8 +295,9 @@ public class CameraService
 
     public async Task<List<object>> GetAiConfigAsync(Guid householdId)
     {
+        var ahora = DateTime.UtcNow;
         var cameras = await _db.CameraConfigs
-            .Where(c => c.HouseholdId == householdId && c.IsConfigured)
+            .Where(c => c.HouseholdId == householdId && c.IsConfigured && (!c.IsSample || c.SampleUntil > ahora))
             .ToListAsync();
 
         return cameras.Select(c => (object)new
@@ -303,12 +311,122 @@ public class CameraService
         }).ToList();
     }
 
+    // ── Video de ejemplo ──────────────────────────────────────────────────────
+
+    /// <summary>Duración de una sesión. Alcanza para que el motor pase de
+    /// «persona desconocida» a «riesgo de intrusión» en casi todos los videos.</summary>
+    private int DuracionEjemplo =>
+        int.TryParse(_config["SampleVideos:Seconds"], out var s) && s > 0 ? s : 180;
+
+    private static void NoEsEjemplo(CameraConfig cam)
+    {
+        if (cam.IsSample)
+            throw new AppException("El video de ejemplo no se puede modificar.");
+    }
+
+    /// <summary>Sesión en curso del video de ejemplo, o null si no hay.</summary>
+    public async Task<SampleVideoDto?> GetSampleVideoAsync(Guid householdId)
+    {
+        var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.HouseholdId == householdId && c.IsSample);
+        if (cam?.SampleUntil is null || cam.SampleUntil <= DateTime.UtcNow
+            || SampleVideoCatalog.Find(cam.StreamKey) is null)
+            return null;
+        return await ToSampleDtoAsync(cam);
+    }
+
+    /// <summary>
+    /// Reproduce un video de ejemplo en la cámara interna del hogar durante
+    /// unos minutos. Si ya hay uno en curso lo devuelve, salvo que se pida
+    /// <paramref name="otro"/>. Sus eventos se registran, pero sin WhatsApp
+    /// ni alerta de emergencia: la cámara tiene los avisos apagados.
+    /// </summary>
+    public async Task<SampleVideoDto> StartSampleVideoAsync(Guid householdId, Guid? userId, bool otro = false)
+    {
+        var ahora = DateTime.UtcNow;
+        var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.HouseholdId == householdId && c.IsSample);
+        if (cam is not null && !otro && cam.SampleUntil > ahora && SampleVideoCatalog.Find(cam.StreamKey) is not null)
+            return await ToSampleDtoAsync(cam);
+
+        var vistos = await _db.SampleVideoSessions
+            .Where(s => s.HouseholdId == householdId)
+            .Select(s => s.VideoKey).Distinct().ToListAsync();
+        var usos = await _db.SampleVideoSessions
+            .GroupBy(s => s.VideoKey)
+            .Select(g => new { g.Key, N = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.N);
+        var video = ElegirVideo(vistos, usos, cam?.StreamKey);
+
+        if (cam is null)
+        {
+            cam = new CameraConfig { HouseholdId = householdId, IsSample = true, CreatedAt = ahora };
+            _db.CameraConfigs.Add(cam);
+        }
+        // Sin IP: así ni la sincronización de MediaMTX ni nadie intenta tirar
+        // de una cámara real. El path ejemploNN lo publica la propia VM de IA.
+        cam.Name = "Video de ejemplo";
+        cam.StreamMode = StreamMode.DirectRtsp;
+        cam.CameraIp = cam.CameraPath = cam.CameraUsername = cam.CameraPassword = cam.CustomHlsUrl = null;
+        cam.StreamKey = video.Key;
+        cam.ZonesJson = video.ZonesJson;
+        cam.IsDefault = false;
+        cam.IsActive = true;
+        cam.IsConfigured = true;
+        cam.NotificationsEnabled = false;
+        cam.SampleUntil = ahora.AddSeconds(DuracionEjemplo);
+        cam.UpdatedAt = ahora;
+        _db.SampleVideoSessions.Add(new SampleVideoSession
+        {
+            HouseholdId = householdId, UserId = userId, VideoKey = video.Key, StartedAt = ahora,
+        });
+        await _db.SaveChangesAsync();
+        return await ToSampleDtoAsync(cam);
+    }
+
+    /// <summary>Termina antes de tiempo la sesión en curso (si la hay).</summary>
+    public async Task StopSampleVideoAsync(Guid householdId)
+    {
+        var ahora = DateTime.UtcNow;
+        var cam = await _db.CameraConfigs.FirstOrDefaultAsync(c => c.HouseholdId == householdId && c.IsSample);
+        if (cam?.SampleUntil is null || cam.SampleUntil <= ahora) return;
+        cam.SampleUntil = ahora;
+        cam.UpdatedAt = ahora;
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Reparte los videos sin repetir: primero los que el hogar aún no vio y,
+    /// entre ellos, los menos usados por todos los hogares (al azar si empatan).
+    /// Así dos participantes rara vez ven el mismo. Si ya los vio todos, vale
+    /// cualquiera menos el que acaba de ver.
+    /// </summary>
+    public static SampleVideoCatalog.SampleVideo ElegirVideo(
+        IReadOnlyCollection<string> vistos, IReadOnlyDictionary<string, int> usos,
+        string? actual, Random? azar = null)
+    {
+        var candidatos = SampleVideoCatalog.All.Where(v => !vistos.Contains(v.Key)).ToList();
+        if (candidatos.Count == 0)
+            candidatos = SampleVideoCatalog.All.Where(v => v.Key != actual).ToList();
+        var menor = candidatos.Min(v => usos.GetValueOrDefault(v.Key));
+        var empatados = candidatos.Where(v => usos.GetValueOrDefault(v.Key) == menor).ToList();
+        return empatados[(azar ?? Random.Shared).Next(empatados.Count)];
+    }
+
+    private async Task<SampleVideoDto> ToSampleDtoAsync(CameraConfig cam)
+    {
+        var video = SampleVideoCatalog.Find(cam.StreamKey)!;
+        var vistos = await _db.SampleVideoSessions
+            .Where(s => s.HouseholdId == cam.HouseholdId)
+            .Select(s => s.VideoKey).Distinct().CountAsync();
+        return new SampleVideoDto(ToDto(cam), video.Key, video.Title, video.TitleEn,
+            cam.SampleUntil!.Value, vistos, SampleVideoCatalog.All.Count);
+    }
+
     // ── Backwards-compat: default camera ─────────────────────────────────────
 
     public async Task<CameraConfigDto?> GetDefaultCameraAsync(Guid householdId)
     {
         var cam = await _db.CameraConfigs
-            .Where(c => c.HouseholdId == householdId)
+            .Where(c => c.HouseholdId == householdId && !c.IsSample)
             .OrderByDescending(c => c.IsDefault)
             .ThenBy(c => c.CreatedAt)
             .FirstOrDefaultAsync();
@@ -366,7 +484,11 @@ public class CameraService
         BuildMediaMtxRtspViewUrl(cam),
         cam.ZonesJson,
         cam.NotificationsEnabled,
-        cam.IsActive
+        cam.IsActive,
+        cam.IsSample,
+        cam.IsSample ? cam.SampleUntil : null,
+        cam.IsSample ? SampleVideoCatalog.Find(cam.StreamKey)?.Title : null,
+        cam.IsSample ? SampleVideoCatalog.Find(cam.StreamKey)?.TitleEn : null
     );
 
     private static string? BuildRtspUrl(CameraConfig cam)

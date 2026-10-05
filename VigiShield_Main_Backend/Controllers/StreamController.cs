@@ -115,6 +115,36 @@ public class StreamController : ControllerBase
         return Ok(await _cameraService.UpdateZonesAsync(User.GetHouseholdId(), cameraId, request));
     }
 
+    // ── Video de ejemplo ──────────────────────────────────────────────────────
+
+    /// <summary>Video de ejemplo en curso del hogar (204 si no hay ninguno).</summary>
+    [HttpGet("sample-video")]
+    [Authorize]
+    public async Task<IActionResult> GetSampleVideo()
+    {
+        var dto = await _cameraService.GetSampleVideoAsync(User.GetHouseholdId());
+        return dto is null ? NoContent() : Ok(dto);
+    }
+
+    /// <summary>
+    /// Reproduce un video de ejemplo unos minutos para ver alertas y eventos
+    /// sin provocar la escena en casa. Cualquier miembro del hogar. Con
+    /// <c>otro=true</c> cambia al siguiente video aunque haya uno en curso.
+    /// </summary>
+    [HttpPost("sample-video")]
+    [Authorize]
+    public async Task<ActionResult<SampleVideoDto>> StartSampleVideo([FromQuery] bool otro = false)
+        => Ok(await _cameraService.StartSampleVideoAsync(User.GetHouseholdId(), User.GetUserId(), otro));
+
+    /// <summary>Termina antes de tiempo el video de ejemplo en curso.</summary>
+    [HttpDelete("sample-video")]
+    [Authorize]
+    public async Task<IActionResult> StopSampleVideo()
+    {
+        await _cameraService.StopSampleVideoAsync(User.GetHouseholdId());
+        return NoContent();
+    }
+
     // ── Live camera image/video controls (hi3510 CGI) ─────────────────────────
 
     /// <summary>Read the camera's current image/video settings (brightness, etc.).</summary>
