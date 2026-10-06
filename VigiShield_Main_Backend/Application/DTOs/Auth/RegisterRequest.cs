@@ -15,3 +15,6 @@ public record RegisterRequest(
 );
 
 public record AcceptTermsRequest([Required, MaxLength(20)] string Version);
+
+/// <summary>Borrar la cuenta: se pide la contraseña para confirmar que es el dueño.</summary>
+public record DeleteAccountRequest([Required] string Password);

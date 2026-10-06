@@ -62,4 +62,41 @@ public class R2Service
             return null;
         }
     }
+
+    /// <summary>
+    /// Borra del bucket los archivos de estas URLs públicas (fotos y clips de
+    /// eventos). Solo toca las que cuelgan de R2:PublicBaseUrl o del dominio
+    /// público del bucket; las demás se ignoran. Devuelve cuántas se borraron.
+    /// </summary>
+    public async Task<int> DeleteByUrlsAsync(IEnumerable<string> urls, CancellationToken ct = default)
+    {
+        if (!IsConfigured) return 0;
+        var bases = new[] { (_config["R2:PublicBaseUrl"] ?? "").TrimEnd('/'), "https://bucket.vigishield.app" }
+            .Where(b => b.Length > 0).Distinct().ToArray();
+        var keys = urls
+            .Select(u => bases.FirstOrDefault(b => u.StartsWith(b + "/", StringComparison.OrdinalIgnoreCase)) is { } b
+                ? Uri.UnescapeDataString(u[(b.Length + 1)..].Split('?')[0]) : null)
+            .Where(k => !string.IsNullOrWhiteSpace(k)).Distinct().ToList();
+        if (keys.Count == 0) return 0;
+
+        var s3Config = new AmazonS3Config
+        {
+            ServiceURL = _config["R2:Endpoint"],
+            ForcePathStyle = true,
+            RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
+            ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
+        };
+        using var client = new AmazonS3Client(_config["R2:AccessKeyId"], _config["R2:SecretAccessKey"], s3Config);
+        var borradas = 0;
+        foreach (var lote in keys.Chunk(1000))
+        {
+            var resp = await client.DeleteObjectsAsync(new DeleteObjectsRequest
+            {
+                BucketName = _config["R2:Bucket"],
+                Objects = lote.Select(k => new KeyVersion { Key = k }).ToList(),
+            }, ct);
+            borradas += resp.DeletedObjects?.Count ?? 0;
+        }
+        return borradas;
+    }
 }

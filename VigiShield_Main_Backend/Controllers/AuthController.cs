@@ -115,4 +115,17 @@ public class AuthController : ControllerBase
         // JWT is stateless — client discards the token
         return NoContent();
     }
+
+    /// <summary>
+    /// Borra la cuenta del usuario (y su hogar entero si es el residente
+    /// principal). Pide la contraseña. Exigido por Apple (guía 5.1.1(v)).
+    /// </summary>
+    [HttpPost("delete-account")]
+    [Authorize]
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request,
+        [FromServices] CuentaService cuentas, CancellationToken ct)
+    {
+        var resultado = await cuentas.EliminarAsync(User.GetUserId(), request.Password, ct);
+        return Ok(new { hogarEliminado = resultado.HogarEliminado, usuariosEliminados = resultado.UsuariosEliminados });
+    }
 }
