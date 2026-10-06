@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>VigiShield · Administración</title>
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+
+<!-- Login: solo entra el rol Admin (el servidor lo vuelve a comprobar en cada petición) -->
+<section id="login" class="login">
+  <form id="formLogin" autocomplete="on">
+    <h1>VigiShield</h1>
+    <p>Panel de administración</p>
+    <label for="correo">Correo</label>
+    <input id="correo" type="email" autocomplete="username" required>
+    <label for="clave">Contraseña</label>
+    <input id="clave" type="password" autocomplete="current-password" required>
+    <button class="btn bloque" type="submit">Ingresar</button>
+    <div class="error" id="errorLogin" role="alert"></div>
+  </form>
+</section>
+
+<div id="app" class="app oculto">
+  <nav class="lateral" aria-label="Secciones">
+    <div class="marca">VigiShield<small>Administración</small></div>
+    <a href="#resumen" data-seccion="resumen">📊 Resumen</a>
+    <a href="#vivo" data-seccion="vivo">🔴 En vivo</a>
+    <a href="#camaras" data-seccion="camaras">📷 Cámaras</a>
+    <a href="#usuarios" data-seccion="usuarios">👥 Usuarios</a>
+    <a href="#eventos" data-seccion="eventos">🗂️ Eventos</a>
+    <a href="#alertas" data-seccion="alertas">🚨 Lanzar alerta</a>
+    <a href="#servidores" data-seccion="servidores">🖥️ Servidores</a>
+    <a href="#admins" data-seccion="admins">🔑 Administradores</a>
+    <div class="pie"><span id="quien"></span><br><a href="#" id="salir">Cerrar sesión</a></div>
+  </nav>
+
+  <main>
+    <!-- Resumen -->
+    <section data-seccion="resumen">
+      <h2>Resumen</h2>
+      <p class="sub">Estado general de la prueba. Se actualiza cada 15 s.</p>
+      <div class="kpis" id="kpis"></div>
+      <div class="dos">
+        <div class="tarjeta"><h3>Eventos por tipo (últimos 7 días)</h3><canvas id="graficoTipos" height="220"></canvas></div>
+        <div class="tarjeta"><h3>Servidores ahora</h3><div id="resumenServidores" class="kpis" style="margin:0"></div></div>
+      </div>
+    </section>
+
+    <!-- En vivo -->
+    <section data-seccion="vivo">
+      <h2>En vivo</h2>
+      <p class="sub">Cámaras que la IA está analizando ahora, con sus detecciones. Toca una para verla en grande.</p>
+      <div class="mosaico" id="mosaico"></div>
+    </section>
+
+    <!-- Cámaras -->
+    <section data-seccion="camaras">
+      <h2>Cámaras</h2>
+      <p class="sub">Desactivar una cámara deja de analizarla en la VM de IA (lo único que libera CPU). El participante lo verá en su app.</p>
+      <div class="fila">
+        <div class="crece"><label for="buscarCamara">Buscar</label><input id="buscarCamara" placeholder="Nombre de cámara, usuario o correo"></div>
+        <div><label for="filtroCamaras">Mostrar</label>
+          <select id="filtroCamaras"><option value="todas">Todas</option><option value="vivo">Transmitiendo</option><option value="activas">Activas</option><option value="inactivas">Desactivadas</option></select></div>
+      </div>
+      <div class="tabla"><table><thead><tr><th>Estado</th><th>Cámara</th><th>Dueño</th><th>Tipo</th><th>Zonas</th><th>Análisis IA</th><th>Creada</th><th></th></tr></thead><tbody id="tablaCamaras"></tbody></table></div>
+    </section>
+
+    <!-- Usuarios -->
+    <section data-seccion="usuarios">
+      <h2>Usuarios</h2>
+      <p class="sub">«Activo» = actividad en los últimos 7 días. «En línea» = usó la app en los últimos 10 minutos.</p>
+      <div class="fila">
+        <div class="crece"><label for="buscarUsuario">Buscar</label><input id="buscarUsuario" placeholder="Nombre o correo"></div>
+        <div><label for="filtroUsuarios">Mostrar</label>
+          <select id="filtroUsuarios"><option value="todos">Todos</option><option value="activo">Activos</option><option value="inactivo">Inactivos</option><option value="linea">En línea</option></select></div>
+      </div>
+      <div class="kpis" id="kpisUsuarios"></div>
+      <div class="tabla"><table><thead><tr><th>Estado</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Última actividad</th><th>Registrado</th><th>Cámaras</th><th>Eventos</th><th>Último evento</th><th>Videos de ejemplo</th><th>Términos</th></tr></thead><tbody id="tablaUsuarios"></tbody></table></div>
+    </section>
+
+    <!-- Eventos -->
+    <section data-seccion="eventos">
+      <h2>Eventos</h2>
+      <p class="sub">Eventos de todos los participantes. «Exportar ZIP» descarga hasta 300 (los más recientes del filtro) con su foto, su clip y un CSV.</p>
+      <div class="fila">
+        <div class="crece"><label for="evUsuario">Participante</label><select id="evUsuario"><option value="">Todos</option></select></div>
+        <div><label for="evTipo">Tipo</label><select id="evTipo"><option value="">Todos</option></select></div>
+        <div><label for="evOrigen">Origen</label><select id="evOrigen"><option value="">Todos</option><option value="false">Cámara real</option><option value="true">Video de ejemplo</option></select></div>
+        <div><label for="evDesde">Desde</label><input id="evDesde" type="date"></div>
+        <div><label for="evHasta">Hasta</label><input id="evHasta" type="date"></div>
+        <div><button class="btn sec" id="evBuscar">Filtrar</button></div>
+        <div><button class="btn" id="evExportar">⬇ Exportar ZIP</button></div>
+      </div>
+      <div class="tabla"><table><thead><tr><th>Foto</th><th>Fecha (Lima)</th><th>Participante</th><th>Cámara</th><th>Tipo</th><th>Riesgo</th><th>Confianza</th><th>Origen</th><th>Descargar</th></tr></thead><tbody id="tablaEventos"></tbody></table></div>
+      <div class="paginas" id="paginasEventos"></div>
+    </section>
+
+    <!-- Lanzar alerta -->
+    <section data-seccion="alertas">
+      <h2>Lanzar alerta</h2>
+      <p class="sub">Crea un evento real en el hogar elegido: aparece en su historial y, si tiene avisos, le llega por WhatsApp y a la app. Úsalo para probar.</p>
+      <div class="tarjeta" style="max-width:620px">
+        <label for="alUsuario">Participante</label><select id="alUsuario"></select>
+        <label for="alTipo">Tipo de alerta</label><select id="alTipo"></select>
+        <label for="alCamara">Nombre de la cámara (opcional)</label><input id="alCamara" placeholder="Si lo dejas vacío, usa su cámara principal">
+        <button class="btn bloque peligro" id="alEnviar">Lanzar alerta</button>
+        <div id="alResultado" class="sub" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <!-- Servidores -->
+    <section data-seccion="servidores">
+      <h2>Servidores</h2>
+      <p class="sub">CPU y RAM en tiempo real (cada 3 s, últimos 10 min). La VM de IA (Azure) analiza el video; la de Oracle corre el backend, la web y este panel.</p>
+      <div class="dos">
+        <div class="tarjeta"><h3>VM de IA · Azure</h3><div class="kpis" id="kpiAzure"></div><canvas id="graficoAzure" height="200"></canvas></div>
+        <div class="tarjeta"><h3>Backend · Oracle</h3><div class="kpis" id="kpiOracle"></div><canvas id="graficoOracle" height="200"></canvas></div>
+      </div>
+      <div class="tarjeta"><h3>Procesos que más consumen en la VM de IA</h3>
+        <div class="tabla"><table><thead><tr><th>Proceso</th><th>CPU</th><th>RAM</th><th>Comando</th></tr></thead><tbody id="tablaProcesos"></tbody></table></div></div>
+    </section>
+
+    <!-- Administradores -->
+    <section data-seccion="admins">
+      <h2>Administradores</h2>
+      <p class="sub">Quienes pueden entrar a este panel y a las herramientas de desarrollo de la app.</p>
+      <div class="fila"><div class="crece"><label for="adCorreo">Correo de una cuenta existente</label><input id="adCorreo" type="email" placeholder="correo@ejemplo.com"></div>
+        <div><button class="btn" id="adAgregar">Dar acceso</button></div></div>
+      <div class="error" id="adError"></div>
+      <div class="tabla"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Desde</th><th></th></tr></thead><tbody id="tablaAdmins"></tbody></table></div>
+    </section>
+  </main>
+</div>
+
+<div id="modal" class="modal oculto" role="dialog" aria-modal="true">
+  <div class="caja">
+    <div class="cabeza"><strong id="modalTitulo"></strong><button class="btn sec" id="modalCerrar">Cerrar ✕</button></div>
+    <div class="cuerpo" id="modalCuerpo"></div>
+  </div>
+</div>
+
+<script src="/admin/vendor/chart.umd.min.js"></script>
+<script src="/admin/admin.js"></script>
+</body>
+</html>

@@ -22,4 +22,7 @@ public class User
     public DateTime? TermsAcceptedAt { get; set; }
     /// <summary>Versión de los términos aceptados, p. ej. "2026-10-05".</summary>
     public string? TermsVersion { get; set; }
+    /// <summary>Última petición autenticada (como mucho se actualiza cada 5 min).
+    /// La usa el panel de administración para separar activos e inactivos.</summary>
+    public DateTime? LastSeenAt { get; set; }
 }

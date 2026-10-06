@@ -78,6 +78,10 @@ builder.Services.AddScoped<ConfigService>();
 builder.Services.AddScoped<SystemService>();
 builder.Services.AddScoped<MediaMtxService>();
 builder.Services.AddScoped<CameraService>();
+// Panel de administración (vigishield.app/admin): servicios nuevos, aparte.
+builder.Services.AddScoped<AdminService>();
+builder.Services.AddSingleton<HostMetrics>();
+builder.Services.AddHttpClient("admin-export", c => c.Timeout = TimeSpan.FromSeconds(60));
 builder.Services.AddScoped<CameraControlService>();
 // Singleton: la cola de ordenes para el agente de cada casa vive en memoria
 // del proceso, no en base de datos (una orden dura segundos).
@@ -125,6 +129,7 @@ app.UseCors();
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<VigiShield.Common.Middleware.UltimaActividadMiddleware>();
 app.MapControllers();
 
 // Unauthenticated liveness probe for load balancers / monitoring / certbot.
