@@ -127,5 +127,7 @@ public class AppDbContext : DbContext
              .HasForeignKey(n => n.RecipientUserId)
              .OnDelete(DeleteBehavior.Restrict);
         });
+
+        modelBuilder.ApplyConfiguration(new EvidenciaGrabacionConfiguracion());
     }
 }

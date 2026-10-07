@@ -34,6 +34,7 @@
     <a href="#alertas" data-seccion="alertas">🚨 Lanzar alerta</a>
     <a href="#servidores" data-seccion="servidores">🖥️ Servidores</a>
     <a href="#admins" data-seccion="admins">🔑 Administradores</a>
+    <a href="#evidencia" data-seccion="evidencia">🎥 Evidencia</a>
     <div class="pie"><span id="quien"></span><br><a href="#" id="salir">Cerrar sesión</a></div>
   </nav>
 
@@ -132,6 +133,17 @@
       <div class="error" id="adError"></div>
       <div class="tabla"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Desde</th><th></th></tr></thead><tbody id="tablaAdmins"></tbody></table></div>
     </section>
+    <!-- Evidencia (evidencia.js) -->
+    <section data-seccion="evidencia" class="oculto">
+      <h2>Grabar evidencia</h2>
+      <p class="sub">Si está encendido, se guarda el primer minuto de cada transmisión desde las cámaras de celular del hogar
+        (una vez al día) en la VM de IA. Por defecto se enciende solo para quien se registró con la política de privacidad
+        que lo menciona (publicada el <span id="politicaEvidencia">—</span>). Las cuentas anteriores aceptaron un texto que
+        dice que no se graba: enciéndelas solo cuando el tester lo acepte.</p>
+      <div class="fila"><div class="crece"><label for="buscarEvidencia">Buscar</label><input id="buscarEvidencia" placeholder="Nombre o correo del dueño"></div></div>
+      <div class="kpis" id="kpisEvidencia"></div>
+      <div class="tabla"><table><thead><tr><th>Grabar</th><th>Dueño del hogar</th><th>Registrado</th><th>Aceptó términos</th><th>Cámaras de celular</th><th>Por qué</th></tr></thead><tbody id="tablaEvidencia"></tbody></table></div>
+    </section>
   </main>
 </div>
 
@@ -144,5 +156,6 @@
 
 <script src="/admin/vendor/chart.umd.min.js"></script>
 <script src="/admin/admin.js"></script>
+<script src="/admin/evidencia.js"></script>
 </body>
 </html>
