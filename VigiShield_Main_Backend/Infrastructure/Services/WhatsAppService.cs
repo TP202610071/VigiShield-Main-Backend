@@ -128,6 +128,89 @@ public class WhatsAppService
             hasButton ? eventId : null, eventLabel, camera, date, time);
     }
 
+    /// <summary>
+    /// Alerta de evento con la FOTO del evento en el encabezado de la plantilla.
+    /// Usa WhatsApp:EventImageTemplate (plantilla aprobada en Meta con encabezado de
+    /// imagen y el mismo cuerpo de 4 variables: evento, cámara, fecha, hora),
+    /// :EventImageTemplateLang y :EventImageTemplateHasButton. Sin esa plantilla, o si
+    /// el evento no tiene foto pública, envía la alerta de texto de siempre; y si
+    /// Meta rechaza la de imagen para un número, a ese número le manda la de texto,
+    /// para que ninguna alerta se pierda.
+    /// </summary>
+    public async Task SendEventAlertWithPhotoAsync(
+        IReadOnlyCollection<string> toNumbers, string eventId,
+        string eventLabel, string camera, string date, string time, string? photoUrl)
+    {
+        var template = _cfg["WhatsApp:EventImageTemplate"];
+        if (!IsConfigured || toNumbers.Count == 0) return;
+        if (string.IsNullOrWhiteSpace(template) || !EsUrlPublica(photoUrl))
+        {
+            await SendEventAlertAsync(toNumbers, eventId, eventLabel, camera, date, time);
+            return;
+        }
+
+        var version = _cfg["WhatsApp:ApiVersion"] ?? "v21.0";
+        var url = $"https://graph.facebook.com/{version}/{_cfg["WhatsApp:PhoneNumberId"]}/messages";
+        var lang = _cfg["WhatsApp:EventImageTemplateLang"] ?? "es";
+        var conBoton = string.Equals(_cfg["WhatsApp:EventImageTemplateHasButton"], "true", StringComparison.OrdinalIgnoreCase);
+        var componentes = ComponentesConFoto(photoUrl!, conBoton ? eventId : null, eventLabel, camera, date, time);
+
+        var client = _httpFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _cfg["WhatsApp:AccessToken"]);
+        foreach (var raw in toNumbers)
+        {
+            var to = Normalize(raw);
+            if (to is null) continue;
+            var payload = new
+            {
+                messaging_product = "whatsapp",
+                to,
+                type = "template",
+                template = new { name = template, language = new { code = lang }, components = componentes }
+            };
+            var enviado = false;
+            try
+            {
+                var resp = await client.PostAsJsonAsync(url, payload);
+                enviado = resp.IsSuccessStatusCode;
+                if (enviado)
+                    _log.LogInformation("WhatsApp '{Template}' (con foto) sent to {To}", template, Mask(to));
+                else
+                    _log.LogWarning("WhatsApp '{Template}' (con foto) to {To} failed: {Status} {Body}",
+                        template, Mask(to), (int)resp.StatusCode, await resp.Content.ReadAsStringAsync());
+            }
+            catch (Exception e)
+            {
+                _log.LogWarning(e, "WhatsApp send error (con foto) to {To}", Mask(to));
+            }
+            if (!enviado)
+                await SendEventAlertAsync([raw], eventId, eventLabel, camera, date, time);
+        }
+    }
+
+    /// <summary>Encabezado con la imagen (Meta la descarga de esa URL pública), cuerpo
+    /// y, si corresponde, el botón con el id del evento.</summary>
+    public static object[] ComponentesConFoto(string photoUrl, string? buttonUrlParam, params string[] bodyParams)
+    {
+        var componentes = new List<object>
+        {
+            new { type = "header", parameters = new object[] { new { type = "image", image = new { link = photoUrl } } } },
+            new { type = "body", parameters = bodyParams.Select(p => new { type = "text", text = p }).ToArray() },
+        };
+        if (!string.IsNullOrEmpty(buttonUrlParam))
+            componentes.Add(new
+            {
+                type = "button",
+                sub_type = "url",
+                index = "0",
+                parameters = new object[] { new { type = "text", text = buttonUrlParam } }
+            });
+        return componentes.ToArray();
+    }
+
+    private static bool EsUrlPublica(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps;
+
     /// <summary>Digits-only E.164 (Cloud API wants no '+'). Returns null if too short.</summary>
     private static string? Normalize(string raw)
     {
