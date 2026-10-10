@@ -80,4 +80,5 @@ En producción corre como servicio `systemd` detrás de nginx (HTTPS) en una má
 Se publica con `dotnet publish -c Release -r linux-x64 --self-contained false` y el despliegue reemplaza la
 versión de forma atómica: si el servicio no responde en `/health`, vuelve a la anterior.
 
-La carpeta `web/` tiene el sitio público (inicio, términos, privacidad y restablecimiento de contraseña).
+La carpeta `web/` tiene el sitio público (inicio, términos, privacidad y restablecimiento de contraseña) y
+`app-version.json`, con el build mínimo y el último de la app en iOS: la app lo lee para pedir actualizar.

@@ -1,0 +1,11 @@
+{
+  "ios": {
+    "minimo": 32,
+    "ultimo": 32,
+    "url": "itms-beta://",
+    "notas": {
+      "es": "",
+      "en": ""
+    }
+  }
+}
