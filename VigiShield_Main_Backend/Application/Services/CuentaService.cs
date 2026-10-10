@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VigiShield.Common.Exceptions;
+using VigiShield.Common.Media;
 using VigiShield.Infrastructure.Persistence;
 using VigiShield.Infrastructure.Services;
 
@@ -74,8 +75,10 @@ public class CuentaService(AppDbContext db, R2Service r2, IWebHostEnvironment en
     {
         try
         {
-            var n = await r2.DeleteByUrlsAsync(urls);
-            if (urls.Count > 0) logger.LogInformation("R2: {N} de {Total} archivos de eventos borrados", n, urls.Count);
+            // Con la foto de cada evento se borran los rostros que la IA subió junto a ella.
+            var todas = MediosDelEvento.ConDerivados(urls).ToList();
+            var n = await r2.DeleteByUrlsAsync(todas);
+            if (urls.Count > 0) logger.LogInformation("R2: {N} de {Total} archivos de eventos borrados", n, todas.Count);
         }
         catch (Exception ex)
         {

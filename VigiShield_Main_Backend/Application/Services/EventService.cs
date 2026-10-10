@@ -117,8 +117,8 @@ public class EventService
                     .Where(u => u.HouseholdId == ev.HouseholdId && u.WhatsAppNumber != null && u.WhatsAppNumber != "")
                     .Select(u => u.WhatsAppNumber!).ToListAsync();
                 if (numbers.Count > 0)
-                    _ = _whatsApp.SendEventAlertAsync(
-                        numbers, ev.Id.ToString(), SpanishLabel(ev.EventType), camera, date, time);
+                    _ = _whatsApp.SendEventAlertWithPhotoAsync(
+                        numbers, ev.Id.ToString(), SpanishLabel(ev.EventType), camera, date, time, ev.ImageCapturePath);
             }
         }
 
