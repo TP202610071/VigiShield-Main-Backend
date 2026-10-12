@@ -130,5 +130,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.ApplyConfiguration(new EvidenciaGrabacionConfiguracion());
         modelBuilder.ApplyConfiguration(new CuentaExternaConfiguracion());
+        modelBuilder.ApplyConfiguration(new DispositivoPushConfiguracion());
     }
 }

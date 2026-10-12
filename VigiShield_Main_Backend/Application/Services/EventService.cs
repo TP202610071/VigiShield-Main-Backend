@@ -13,12 +13,14 @@ public class EventService
     private readonly AppDbContext _db;
     private readonly WhatsAppService _whatsApp;
     private readonly FcmService _fcm;
+    private readonly PushService? _push;
 
-    public EventService(AppDbContext db, WhatsAppService whatsApp, FcmService fcm)
+    public EventService(AppDbContext db, WhatsAppService whatsApp, FcmService fcm, PushService? push = null)
     {
         _db = db;
         _whatsApp = whatsApp;
         _fcm = fcm;
+        _push = push;
     }
 
     public async Task<EventDto?> IngestEventAsync(IngestEventRequest request)
@@ -120,6 +122,9 @@ public class EventService
                     _ = _whatsApp.SendEventAlertWithPhotoAsync(
                         numbers, ev.Id.ToString(), SpanishLabel(ev.EventType), camera, date, time, ev.ImageCapturePath);
             }
+
+            // Push a los teléfonos del hogar (APNs en iPhone, FCM en Android).
+            if (_push is not null) await _push.EnviarEventoAsync(ev, camera, time);
         }
 
         return ToDto(ev);

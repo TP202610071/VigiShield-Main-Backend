@@ -217,6 +217,46 @@ namespace VigiShield.Migrations
                     b.ToTable("CuentasExternas", (string)null);
                 });
 
+            modelBuilder.Entity("VigiShield.Domain.Entities.DispositivoPush", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Entorno")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Plataforma")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DispositivosPush", (string)null);
+                });
+
             modelBuilder.Entity("VigiShield.Domain.Entities.EvidenciaGrabacion", b =>
                 {
                     b.Property<Guid>("HouseholdId")
@@ -516,6 +556,17 @@ namespace VigiShield.Migrations
                 });
 
             modelBuilder.Entity("VigiShield.Domain.Entities.CuentaExterna", b =>
+                {
+                    b.HasOne("VigiShield.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VigiShield.Domain.Entities.DispositivoPush", b =>
                 {
                     b.HasOne("VigiShield.Domain.Entities.User", "User")
                         .WithMany()
