@@ -86,6 +86,66 @@ public class FcmService
         }
     }
 
+    /// <summary>
+    /// Envía una alerta a UN teléfono Android y dice qué pasó, para que quien
+    /// llama pueda olvidar los tokens que ya no sirven. Usa el canal «alertas»
+    /// que crea la app (importancia alta, con sonido).
+    /// </summary>
+    public async Task<(ResultadoPush Resultado, string? Razon)> EnviarAndroidAsync(
+        string token, string titulo, string cuerpo, IReadOnlyDictionary<string, string> datos,
+        CancellationToken ct = default)
+    {
+        if (!IsConfigured) return (ResultadoPush.NoConfigurado, null);
+        string accessToken;
+        try { accessToken = await GetAccessTokenAsync(); }
+        catch (Exception e) { _log.LogWarning(e, "FCM: no se pudo obtener el token de acceso"); return (ResultadoPush.Error, "auth"); }
+
+        var mensaje = new
+        {
+            message = new
+            {
+                token,
+                notification = new { title = titulo, body = cuerpo },
+                data = datos,
+                android = new
+                {
+                    priority = "HIGH",
+                    ttl = "3600s",
+                    notification = new
+                    {
+                        channel_id = "alertas",
+                        sound = "default",
+                        notification_priority = "PRIORITY_HIGH",
+                        // Un aviso por evento: si llega dos veces, se reemplaza.
+                        tag = datos.TryGetValue("eventId", out var id) ? id : null,
+                    },
+                },
+            },
+        };
+        try
+        {
+            using var pedido = new HttpRequestMessage(HttpMethod.Post,
+                $"https://fcm.googleapis.com/v1/projects/{_cfg["Fcm:ProjectId"]}/messages:send")
+            {
+                Content = JsonContent.Create(mensaje),
+            };
+            pedido.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            using var resp = await _httpFactory.CreateClient().SendAsync(pedido, ct);
+            if (resp.IsSuccessStatusCode) return (ResultadoPush.Enviado, null);
+            var cuerpoError = await resp.Content.ReadAsStringAsync(ct);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound || cuerpoError.Contains("UNREGISTERED") ||
+                (resp.StatusCode == System.Net.HttpStatusCode.BadRequest && cuerpoError.Contains("registration token")))
+                return (ResultadoPush.TokenInvalido, "UNREGISTERED");
+            _log.LogWarning("FCM rechazó la notificación ({Estado}): {Cuerpo}", (int)resp.StatusCode, cuerpoError);
+            return (ResultadoPush.Error, ((int)resp.StatusCode).ToString());
+        }
+        catch (Exception e)
+        {
+            _log.LogWarning(e, "FCM: error al enviar");
+            return (ResultadoPush.Error, e.GetType().Name);
+        }
+    }
+
     // ── OAuth2 access token from the service account (cached) ──────────────────
 
     private async Task<string> GetAccessTokenAsync()
