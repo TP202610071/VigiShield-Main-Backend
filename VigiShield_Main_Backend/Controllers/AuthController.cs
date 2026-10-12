@@ -123,9 +123,12 @@ public class AuthController : ControllerBase
     [HttpPost("delete-account")]
     [Authorize]
     public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request,
-        [FromServices] CuentaService cuentas, CancellationToken ct)
+        [FromServices] CuentaService cuentas, [FromServices] LoginExternoService externos, CancellationToken ct)
     {
+        // Si hay cuentas de Apple vinculadas, se revocan tras borrar (lo exige Apple).
+        var revocar = await externos.TokensARevocarAsync(User.GetUserId(), ct);
         var resultado = await cuentas.EliminarAsync(User.GetUserId(), request.Password, ct);
+        await externos.RevocarAsync(revocar, ct);
         return Ok(new { hogarEliminado = resultado.HogarEliminado, usuariosEliminados = resultado.UsuariosEliminados });
     }
 }

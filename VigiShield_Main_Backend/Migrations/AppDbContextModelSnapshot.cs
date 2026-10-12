@@ -173,6 +173,50 @@ namespace VigiShield.Migrations
                     b.ToTable("CameraConfigs");
                 });
 
+            modelBuilder.Entity("VigiShield.Domain.Entities.CuentaExterna", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClientId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("CreoLaCuenta")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Proveedor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Sujeto")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Proveedor", "Sujeto")
+                        .IsUnique();
+
+                    b.ToTable("CuentasExternas", (string)null);
+                });
+
             modelBuilder.Entity("VigiShield.Domain.Entities.EvidenciaGrabacion", b =>
                 {
                     b.Property<Guid>("HouseholdId")
@@ -469,6 +513,17 @@ namespace VigiShield.Migrations
                         .IsRequired();
 
                     b.Navigation("Household");
+                });
+
+            modelBuilder.Entity("VigiShield.Domain.Entities.CuentaExterna", b =>
+                {
+                    b.HasOne("VigiShield.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("VigiShield.Domain.Entities.EvidenciaGrabacion", b =>
