@@ -71,6 +71,50 @@ public class CuentaService(AppDbContext db, R2Service r2, IWebHostEnvironment en
         return new Resultado(borrarHogar, afectados.Count);
     }
 
+    /// <summary>
+    /// Lo mismo que <see cref="EliminarAsync"/>, para quien ya confirmó quién es
+    /// por otra vía (volviendo a entrar con Apple): las cuentas creadas con
+    /// Apple no tienen contraseña. Es una copia a propósito, para no tocar el
+    /// método que ya funciona; si cambia lo que se borra, cambiar los dos
+    /// (<c>CuentaExternaTests</c> comprueba que borran lo mismo).
+    /// </summary>
+    public async Task<Resultado> EliminarConfirmadoAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await db.Users.Include(u => u.Household).FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw AppException.NotFound("Usuario no encontrado");
+
+        var hogarId = user.HouseholdId;
+        var otros = await db.Users.CountAsync(u => u.HouseholdId == hogarId && u.Id != userId, ct);
+        var borrarHogar = user.Household is null || user.Household.PrimaryUserId == userId || otros == 0;
+        var afectados = borrarHogar
+            ? await db.Users.Where(u => u.HouseholdId == hogarId).Select(u => u.Id).ToListAsync(ct)
+            : [userId];
+
+        var urlsEventos = borrarHogar
+            ? (await db.Events.Where(e => e.HouseholdId == hogarId)
+                    .Select(e => new { e.ImageCapturePath, e.VideoClipPath }).ToListAsync(ct))
+                .SelectMany(e => new[] { e.ImageCapturePath, e.VideoClipPath })
+                .Where(u => !string.IsNullOrEmpty(u)).Select(u => u!).ToList()
+            : [];
+
+        await using (var tx = await db.Database.BeginTransactionAsync(ct))
+        {
+            await db.NotificationLogs
+                .Where(n => afectados.Contains(n.RecipientUserId) || (borrarHogar && n.HouseholdId == hogarId))
+                .ExecuteDeleteAsync(ct);
+            if (borrarHogar)
+                await db.Households.Where(h => h.Id == hogarId).ExecuteDeleteAsync(ct);
+            else
+                await db.Users.Where(u => u.Id == userId).ExecuteDeleteAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        logger.LogInformation("Cuenta {Usuario} eliminada sin contraseña (hogar eliminado: {Hogar}, usuarios: {N})",
+            userId, borrarHogar, afectados.Count);
+
+        await BorrarArchivosAsync(hogarId, borrarHogar, afectados, urlsEventos);
+        return new Resultado(borrarHogar, afectados.Count);
+    }
+
     private async Task BorrarArchivosAsync(Guid hogarId, bool borrarHogar, List<Guid> usuarios, List<string> urls)
     {
         try

@@ -81,6 +81,8 @@ builder.Services.AddScoped<CameraService>();
 // Panel de administración (vigishield.app/admin): servicios nuevos, aparte.
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<CuentaService>();
+builder.Services.AddScoped<AppleSignInService>();
+builder.Services.AddScoped<LoginExternoService>();
 builder.Services.AddScoped<EvidenciaService>();
 builder.Services.AddSingleton<HostMetrics>();
 builder.Services.AddHttpClient("admin-export", c => c.Timeout = TimeSpan.FromSeconds(60));
