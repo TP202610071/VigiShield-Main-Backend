@@ -9,7 +9,7 @@
   en lo existente solo la línea que lo conecta. Respaldar antes de desplegar y poder revertir.
 - Antes de entregar, las pruebas en verde.
 - **Llaves y accesos:** nunca en el repo. Están en `../Cloud/` (la carpeta al lado de los repos; PC:
-  `G:\Codigo\VigilShield\Cloud`) y en iCloud Drive → `Cloud/`. `../Cloud/LEEME.md` explica cada una:
+  `G:\Codigo\VigilShield\Cloud`) y en iCloud Drive → `Tesis/Cloud/`. `../Cloud/LEEME.md` explica cada una:
   - SSH al Oracle (backend) y a Azure (IA);
   - las variables del backend: Supabase, JWT, R2, WhatsApp, Gmail y Firebase;
   - la llave de Apple (APNs y Sign in with Apple);
