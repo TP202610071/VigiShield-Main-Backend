@@ -109,6 +109,65 @@ public class ApnsService
         }
     }
 
+    /// <summary>
+    /// Envía una notificación completa: subtítulo, insignia, sonido, nivel de
+    /// interrupción e imagen. La imagen va en "imagen" con mutable-content, para
+    /// la extensión de notificaciones de la app, si la tiene.
+    /// </summary>
+    public async Task<(ResultadoPush Resultado, string? Razon)> EnviarMensajeAsync(
+        string token, bool sandbox, MensajePush m, CancellationToken ct = default)
+    {
+        if (!Configurado) return (ResultadoPush.NoConfigurado, null);
+
+        var alerta = new Dictionary<string, string> { ["title"] = m.Titulo, ["body"] = m.Cuerpo };
+        if (!string.IsNullOrWhiteSpace(m.Subtitulo)) alerta["subtitle"] = m.Subtitulo;
+        var aps = new Dictionary<string, object>
+        {
+            ["alert"] = alerta,
+            ["interruption-level"] = m.NivelIos,
+            ["thread-id"] = "avisos",
+        };
+        if (m.Sonido) aps["sound"] = "default";
+        if (m.Insignia is int n) aps["badge"] = n;
+        if (!string.IsNullOrWhiteSpace(m.ImagenUrl)) aps["mutable-content"] = 1;
+        var carga = new Dictionary<string, object> { ["aps"] = aps };
+        foreach (var (k, v) in m.Datos) carga[k] = v;
+        if (!string.IsNullOrWhiteSpace(m.ImagenUrl)) carga["imagen"] = m.ImagenUrl;
+
+        using var pedido = new HttpRequestMessage(HttpMethod.Post, $"{(sandbox ? Sandbox : Produccion)}/3/device/{token}")
+        {
+            Version = HttpVersion.Version20,
+            VersionPolicy = HttpVersionPolicy.RequestVersionExact,
+            Content = JsonContent.Create(carga),
+        };
+        pedido.Headers.TryAddWithoutValidation("authorization", $"bearer {Jwt()}");
+        pedido.Headers.TryAddWithoutValidation("apns-topic", BundleId);
+        pedido.Headers.TryAddWithoutValidation("apns-push-type", "alert");
+        // Las silenciosas no tienen apuro: Apple puede agruparlas para ahorrar batería.
+        pedido.Headers.TryAddWithoutValidation("apns-priority", m.Nivel == MensajePush.Silencioso ? "5" : "10");
+        pedido.Headers.TryAddWithoutValidation("apns-expiration",
+            DateTimeOffset.UtcNow.AddDays(1).ToUnixTimeSeconds().ToString());
+
+        try
+        {
+            using var resp = await Cliente.SendAsync(pedido, ct);
+            if (resp.IsSuccessStatusCode) return (ResultadoPush.Enviado, null);
+            var razon = await LeerRazonAsync(resp, ct);
+            if (resp.StatusCode == HttpStatusCode.Gone ||
+                razon is "BadDeviceToken" or "Unregistered" or "DeviceTokenNotForTopic")
+                return (ResultadoPush.TokenInvalido, razon);
+            if (razon is "ExpiredProviderToken" or "InvalidProviderToken")
+                lock (Candado) _cache = null;
+            _log.LogWarning("APNs rechazó la notificación: {Estado} {Razon}", (int)resp.StatusCode, razon);
+            return (ResultadoPush.Error, razon);
+        }
+        catch (Exception e)
+        {
+            _log.LogWarning(e, "No se pudo enviar a APNs");
+            return (ResultadoPush.Error, e.GetType().Name);
+        }
+    }
+
     private static async Task<string?> LeerRazonAsync(HttpResponseMessage resp, CancellationToken ct)
     {
         try

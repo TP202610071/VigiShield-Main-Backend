@@ -146,6 +146,77 @@ public class FcmService
         }
     }
 
+    /// <summary>
+    /// Envía una notificación completa a un Android: canal según el nivel y el
+    /// sonido, imagen grande y subtítulo en la primera línea.
+    /// </summary>
+    public async Task<(ResultadoPush Resultado, string? Razon)> EnviarAndroidMensajeAsync(
+        string token, MensajePush m, CancellationToken ct = default)
+    {
+        if (!IsConfigured) return (ResultadoPush.NoConfigurado, null);
+        string accessToken;
+        try { accessToken = await GetAccessTokenAsync(); }
+        catch (Exception e) { _log.LogWarning(e, "FCM: no se pudo obtener el token de acceso"); return (ResultadoPush.Error, "auth"); }
+
+        var cuerpo = string.IsNullOrWhiteSpace(m.Subtitulo) ? m.Cuerpo : $"{m.Subtitulo}\n{m.Cuerpo}";
+        var imagen = string.IsNullOrWhiteSpace(m.ImagenUrl) ? null : m.ImagenUrl;
+        // La app usa "canal" e "imagen" cuando la muestra ella (con la app abierta).
+        var datos = new Dictionary<string, string>(m.Datos) { ["canal"] = m.CanalAndroid };
+        if (imagen is not null) datos["imagen"] = imagen;
+        var mensaje = new
+        {
+            message = new
+            {
+                token,
+                notification = new { title = m.Titulo, body = cuerpo, image = imagen },
+                data = datos,
+                android = new
+                {
+                    priority = m.Nivel == MensajePush.Silencioso ? "NORMAL" : "HIGH",
+                    ttl = "86400s",
+                    notification = new
+                    {
+                        channel_id = m.CanalAndroid,
+                        sound = m.Sonido ? "default" : null,
+                        notification_priority = m.Nivel switch
+                        {
+                            MensajePush.Urgente => "PRIORITY_HIGH",
+                            MensajePush.Silencioso => "PRIORITY_LOW",
+                            _ => "PRIORITY_DEFAULT",
+                        },
+                        image = imagen,
+                        notification_count = m.Insignia,
+                    },
+                },
+            },
+        };
+        try
+        {
+            using var pedido = new HttpRequestMessage(HttpMethod.Post,
+                $"https://fcm.googleapis.com/v1/projects/{_cfg["Fcm:ProjectId"]}/messages:send")
+            {
+                Content = JsonContent.Create(mensaje, options: new JsonSerializerOptions
+                {
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                }),
+            };
+            pedido.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            using var resp = await _httpFactory.CreateClient().SendAsync(pedido, ct);
+            if (resp.IsSuccessStatusCode) return (ResultadoPush.Enviado, null);
+            var error = await resp.Content.ReadAsStringAsync(ct);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound || error.Contains("UNREGISTERED") ||
+                (resp.StatusCode == System.Net.HttpStatusCode.BadRequest && error.Contains("registration token")))
+                return (ResultadoPush.TokenInvalido, "UNREGISTERED");
+            _log.LogWarning("FCM rechazó la notificación ({Estado}): {Cuerpo}", (int)resp.StatusCode, error);
+            return (ResultadoPush.Error, ((int)resp.StatusCode).ToString());
+        }
+        catch (Exception e)
+        {
+            _log.LogWarning(e, "FCM: error al enviar");
+            return (ResultadoPush.Error, e.GetType().Name);
+        }
+    }
+
     // ── OAuth2 access token from the service account (cached) ──────────────────
 
     private async Task<string> GetAccessTokenAsync()

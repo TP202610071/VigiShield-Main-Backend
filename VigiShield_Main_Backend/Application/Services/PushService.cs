@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VigiShield.Application.DTOs.Admin;
 using VigiShield.Application.DTOs.Push;
 using VigiShield.Common.Exceptions;
 using VigiShield.Domain.Entities;
@@ -114,6 +115,62 @@ public class PushService(
             resultados.Count(r => r.Estado is ResultadoPush.Error or ResultadoPush.NoConfigurado),
             resultados.All(r => r.Estado != ResultadoPush.NoConfigurado));
     }
+
+    /// <summary>
+    /// Panel de administración: envía una notificación a una cuenta (todos sus
+    /// teléfonos) o a un hogar (todos los teléfonos de sus residentes) y espera
+    /// el resultado.
+    /// </summary>
+    public async Task<AdminPushResultadoDto> EnviarAdminAsync(string destino, Guid id, MensajePush mensaje,
+        CancellationToken ct = default)
+    {
+        var q = db.Set<DispositivoPush>().AsQueryable();
+        q = destino switch
+        {
+            "usuario" => q.Where(d => d.UserId == id),
+            "hogar" => q.Where(d => d.User.HouseholdId == id),
+            _ => throw new AppException("Destino no válido: usa «usuario» u «hogar»."),
+        };
+        var destinos = await DestinosAsync(q);
+        var resultados = await Task.WhenAll(destinos.Select(async d =>
+        {
+            if (d.Plataforma == Android)
+                return new Resultado(d, (await fcm.EnviarAndroidMensajeAsync(d.Token, mensaje, ct)).Resultado, null);
+            var sandbox = d.Entorno == Sandbox;
+            var (r, razon) = await apns.EnviarMensajeAsync(d.Token, sandbox, mensaje, ct);
+            if (r == ResultadoPush.TokenInvalido && razon == "BadDeviceToken" &&
+                (await apns.EnviarMensajeAsync(d.Token, !sandbox, mensaje, ct)).Resultado == ResultadoPush.Enviado)
+                return new Resultado(d, ResultadoPush.Enviado, sandbox ? Produccion : Sandbox);
+            return new Resultado(d, r, null);
+        }));
+        await AplicarAsync(db, [.. resultados], ct);
+        var dto = new AdminPushResultadoDto(
+            destinos.Count,
+            destinos.Count(d => d.Plataforma == Ios),
+            destinos.Count(d => d.Plataforma == Android),
+            resultados.Count(r => r.Estado == ResultadoPush.Enviado),
+            resultados.Count(r => r.Estado == ResultadoPush.TokenInvalido),
+            resultados.Count(r => r.Estado is ResultadoPush.Error or ResultadoPush.NoConfigurado),
+            apns.Configurado, fcm.IsConfigured);
+        logger.LogInformation("Push del panel a {Destino} {Id}: {Enviados}/{Total} enviadas",
+            destino, id, dto.Enviados, dto.Dispositivos);
+        return dto;
+    }
+
+    /// <summary>Teléfonos registrados por usuario, para el panel.</summary>
+    public async Task<List<AdminDispositivosDto>> DispositivosPorUsuarioAsync(CancellationToken ct = default) =>
+        (await db.Set<DispositivoPush>()
+            .GroupBy(d => d.UserId)
+            .Select(g => new
+            {
+                UsuarioId = g.Key,
+                Ios = g.Count(d => d.Plataforma == Ios),
+                Android = g.Count(d => d.Plataforma == Android),
+                Ultimo = g.Max(d => d.ActualizadoEn),
+            })
+            .ToListAsync(ct))
+        .Select(x => new AdminDispositivosDto(x.UsuarioId, x.Ios, x.Android, x.Ultimo))
+        .ToList();
 
     private static Task<List<Destino>> DestinosAsync(IQueryable<DispositivoPush> q) =>
         q.Select(d => new Destino(d.Id, d.Plataforma, d.Token, d.Entorno)).ToListAsync();
