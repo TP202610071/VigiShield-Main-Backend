@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>VigiShield · Administración</title>
 <link rel="stylesheet" href="/admin/admin.css">
+<link rel="stylesheet" href="/admin/notificaciones.css">
 </head>
 <body>
 
@@ -32,6 +33,7 @@
     <a href="#usuarios" data-seccion="usuarios">👥 Usuarios</a>
     <a href="#eventos" data-seccion="eventos">🗂️ Eventos</a>
     <a href="#alertas" data-seccion="alertas">🚨 Lanzar alerta</a>
+    <a href="#notificaciones" data-seccion="notificaciones">🔔 Notificaciones</a>
     <a href="#servidores" data-seccion="servidores">🖥️ Servidores</a>
     <a href="#admins" data-seccion="admins">🔑 Administradores</a>
     <a href="#evidencia" data-seccion="evidencia">🎥 Evidencia</a>
@@ -112,6 +114,66 @@
       </div>
     </section>
 
+    <!-- Notificaciones (notificaciones.js) -->
+    <section data-seccion="notificaciones" class="oculto">
+      <h2>Notificaciones</h2>
+      <p class="sub">Envía una notificación a una cuenta o a todo un hogar. Llega a sus iPhone y Android aunque la app esté cerrada,
+        solo a los teléfonos que abrieron la app con sesión iniciada y aceptaron las notificaciones.</p>
+      <div class="kpis" id="kpisNotif"></div>
+      <div class="nt-dos">
+        <div class="tarjeta">
+          <div class="nt-fila">
+            <div><label for="ntTipo">Enviar a</label>
+              <select id="ntTipo"><option value="usuario">Una cuenta</option><option value="hogar">Un hogar (todos sus residentes)</option></select></div>
+            <div><label for="ntBuscar">Buscar</label><input id="ntBuscar" placeholder="Nombre o correo"></div>
+          </div>
+          <label for="ntDestino">Destinatario</label><select id="ntDestino"></select>
+          <label for="ntPlantilla">Plantilla</label><select id="ntPlantilla"></select>
+          <label for="ntTitulo">Título <span class="nt-cuenta" id="ntCuenta"></span></label>
+          <input id="ntTitulo" maxlength="120" placeholder="Ej.: Hoy probamos VigiShield 📷">
+          <label for="ntSubtitulo">Subtítulo (opcional)</label>
+          <input id="ntSubtitulo" maxlength="120" placeholder="En iPhone va bajo el título; en Android, en la primera línea">
+          <label for="ntCuerpo">Mensaje</label>
+          <textarea id="ntCuerpo" maxlength="1000" placeholder="Escribe el mensaje. Puedes usar emojis 🎉"></textarea>
+          <label>Emojis <span class="nt-cuenta">toca uno para insertarlo · en Windows también: Win + .</span></label>
+          <div id="ntEmojis"></div>
+          <label for="ntImagen">Imagen (opcional)</label>
+          <input id="ntImagen" type="url" placeholder="https://… (jpg o png)">
+          <p class="nt-ayuda">Android la muestra grande. En iPhone se verá cuando la app tenga la extensión de notificaciones.</p>
+          <div class="nt-fila">
+            <div><label for="ntNivel">Importancia</label>
+              <select id="ntNivel"><option value="urgente">Urgente</option><option value="normal" selected>Normal</option><option value="silencioso">Silenciosa</option></select></div>
+            <div><label for="ntInsignia">Número en el ícono (iPhone)</label><input id="ntInsignia" type="number" min="0" max="9999" placeholder="Sin cambiar"></div>
+          </div>
+          <p class="nt-ayuda" id="ntNivelAyuda"></p>
+          <label class="nt-check"><input id="ntSonido" type="checkbox" checked> Con sonido</label>
+          <div class="nt-fila">
+            <div><label for="ntAbrir">Al tocarla abre</label>
+              <select id="ntAbrir"><option value="inicio">Inicio</option><option value="camara">Cámara</option><option value="historial">Historial</option>
+                <option value="ajustes">Ajustes</option><option value="evento">Un evento</option></select></div>
+            <div id="ntEventoFila" class="oculto"><label for="ntEvento">Id del evento</label><input id="ntEvento" placeholder="xxxxxxxx-xxxx-…"></div>
+          </div>
+          <button class="btn bloque" id="ntEnviar">🔔 Enviar notificación</button>
+          <div id="ntResultado" class="sub" style="margin-top:12px"></div>
+        </div>
+        <div class="tarjeta">
+          <h3>Vista previa</h3>
+          <div class="vista" id="vistaIos">
+            <span class="vt-insignia oculto"></span>
+            <div class="vt-cab"><span class="vt-icono">🛡️</span>VigiShield<span style="margin-left:auto">ahora</span></div>
+            <div class="vt-titulo"></div><div class="vt-sub oculto"></div><div class="vt-cuerpo"></div>
+            <img class="vt-imagen oculto" alt="">
+          </div>
+          <div class="vista" id="vistaAndroid">
+            <div class="vt-cab"><span class="vt-icono">🛡</span>VigiShield · ahora</div>
+            <div class="vt-titulo"></div><div class="vt-cuerpo"></div>
+            <img class="vt-imagen oculto" alt="">
+          </div>
+          <p class="nt-ayuda">Arriba, iPhone; abajo, Android. Es una aproximación: cada teléfono la dibuja a su manera.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Servidores -->
     <section data-seccion="servidores">
       <h2>Servidores</h2>
@@ -157,5 +219,6 @@
 <script src="/admin/vendor/chart.umd.min.js"></script>
 <script src="/admin/admin.js"></script>
 <script src="/admin/evidencia.js"></script>
+<script src="/admin/notificaciones.js"></script>
 </body>
 </html>

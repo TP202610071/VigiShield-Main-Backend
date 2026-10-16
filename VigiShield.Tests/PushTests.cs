@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using VigiShield.Application.DTOs.Push;
 using VigiShield.Application.Services;
+using VigiShield.Common.Exceptions;
 using VigiShield.Domain.Entities;
 using VigiShield.Domain.Enums;
 using VigiShield.Infrastructure.Persistence;
@@ -197,5 +198,69 @@ public class PushTests
         await push.RegistrarAsync(beto.Id, new RegistrarDispositivoRequest("beto", "android", null));
         await f.Db.Users.Where(u => u.Id == beto.Id).ExecuteDeleteAsync();
         Assert.False(await f.Db.Set<DispositivoPush>().AnyAsync());
+    }
+
+    private static MensajePush Mensaje(string nivel = "normal", bool sonido = true, string? imagen = null, int? insignia = null) =>
+        new("Hola 👋", "Aviso del equipo", "Mañana probamos la cámara 📷", imagen, nivel, sonido, insignia,
+            new Dictionary<string, string> { ["eventId"] = "/history", ["type"] = "Admin" });
+
+    [Fact]
+    public async Task Panel_push_to_a_household_reaches_every_member_and_to_an_account_only_theirs()
+    {
+        await using var f = new TestDb();
+        var (push, apns) = Servicio(f);
+        var (ana, beto) = await HogarAsync(f);
+        await push.RegistrarAsync(ana.Id, new RegistrarDispositivoRequest("ana", "ios", null));
+        await push.RegistrarAsync(beto.Id, new RegistrarDispositivoRequest("beto", "ios", null));
+
+        var hogar = await push.EnviarAdminAsync("hogar", ana.HouseholdId, Mensaje());
+        Assert.Equal(2, hogar.Enviados);
+        Assert.Equal(2, hogar.Ios);
+
+        apns.Pedidos.Clear();
+        var cuenta = await push.EnviarAdminAsync("usuario", beto.Id, Mensaje());
+        Assert.Equal(1, cuenta.Enviados);
+        Assert.EndsWith("/beto", Assert.Single(apns.Pedidos).Url);
+
+        await Assert.ThrowsAsync<AppException>(() => push.EnviarAdminAsync("todos", ana.Id, Mensaje()));
+    }
+
+    [Fact]
+    public async Task Panel_push_carries_emojis_subtitle_badge_level_sound_and_image()
+    {
+        await using var f = new TestDb();
+        var (push, apns) = Servicio(f);
+        var (ana, _) = await HogarAsync(f);
+        await push.RegistrarAsync(ana.Id, new RegistrarDispositivoRequest("ana", "ios", null));
+
+        await push.EnviarAdminAsync("usuario", ana.Id,
+            Mensaje(nivel: "silencioso", sonido: false, imagen: "https://bucket.vigishield.app/foto.jpg", insignia: 3));
+
+        var (_, cab, cuerpo) = Assert.Single(apns.Pedidos);
+        Assert.Equal("5", cab["apns-priority"]);
+        using var json = JsonDocument.Parse(cuerpo);
+        var aps = json.RootElement.GetProperty("aps");
+        Assert.Equal("Hola 👋", aps.GetProperty("alert").GetProperty("title").GetString());
+        Assert.Equal("Aviso del equipo", aps.GetProperty("alert").GetProperty("subtitle").GetString());
+        Assert.Equal("Mañana probamos la cámara 📷", aps.GetProperty("alert").GetProperty("body").GetString());
+        Assert.Equal("passive", aps.GetProperty("interruption-level").GetString());
+        Assert.Equal(3, aps.GetProperty("badge").GetInt32());
+        Assert.Equal(1, aps.GetProperty("mutable-content").GetInt32());
+        Assert.False(aps.TryGetProperty("sound", out _));
+        Assert.Equal("https://bucket.vigishield.app/foto.jpg", json.RootElement.GetProperty("imagen").GetString());
+        Assert.Equal("/history", json.RootElement.GetProperty("eventId").GetString());
+    }
+
+    [Theory]
+    [InlineData("urgente", true, "alertas", "time-sensitive")]
+    [InlineData("normal", true, "avisos", "active")]
+    [InlineData("normal", false, "silenciosas", "active")]
+    [InlineData("silencioso", true, "silenciosas", "passive")]
+    public void Each_level_maps_to_its_android_channel_and_ios_interruption_level(
+        string nivel, bool sonido, string canal, string ios)
+    {
+        var m = Mensaje(nivel, sonido);
+        Assert.Equal(canal, m.CanalAndroid);
+        Assert.Equal(ios, m.NivelIos);
     }
 }
