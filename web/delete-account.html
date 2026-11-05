@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Eliminar cuenta · VigiShield</title>
+<meta name="description" content="Cómo eliminar tu cuenta de VigiShield y qué datos se borran.">
+<link rel="stylesheet" href="/estilo.css">
+<style>
+  [data-en]{display:none}
+  html[lang=en] [data-es]{display:none}
+  html[lang=en] [data-en]{display:revert}
+  .idioma{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;
+          padding:4px 10px;font-size:13px;cursor:pointer}
+  .idioma:hover{color:var(--fg)}
+  ol li,ul li{margin:4px 0}
+  form label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
+  form input[type=email],form input[type=password]{width:100%;padding:12px 14px;margin:0 0 14px;
+        background:#0D1424;color:var(--fg);border:1px solid var(--line);border-radius:10px;font-size:15px}
+  form input:focus{outline:none;border-color:var(--accent)}
+  .check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#D1D5DB;margin:4px 0 18px}
+  .check input{margin-top:4px}
+  .peligro{width:100%;padding:13px;border:0;border-radius:12px;background:#EF4444;color:#fff;
+           font-size:15px;font-weight:700;cursor:pointer}
+  .peligro:disabled{opacity:.5;cursor:default}
+  .msg{font-size:14px;line-height:1.6;padding:12px 14px;border-radius:10px;margin:0 0 14px;display:none}
+  .msg.err{display:block;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#FCA5A5}
+  .msg.ok{display:block;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#6EE7B7}
+</style>
+</head>
+<body>
+<header><div class="wrap top">
+  <a class="brand" href="/">VigiShield</a>
+  <nav><a href="/">Inicio</a><a href="/terminos">Términos</a><a href="/privacidad">Privacidad</a>
+    <button class="idioma" id="idioma" type="button">English</button></nav>
+</div></header>
+<main class="wrap">
+  <h1 data-es>Eliminar tu cuenta de VigiShield</h1>
+  <h1 data-en>Delete your VigiShield account</h1>
+  <p class="meta" data-es>App VigiShield (Android y iPhone) · Proyecto de tesis UPC</p>
+  <p class="meta" data-en>VigiShield app (Android and iPhone) · UPC thesis project</p>
+
+  <!-- ===================== ES ===================== -->
+  <div data-es>
+    <p>Puedes eliminar tu cuenta y tus datos cuando quieras, de cualquiera de estas tres formas. El borrado es
+      definitivo: no se puede deshacer.</p>
+
+    <h2>1. Desde la aplicación</h2>
+    <ol>
+      <li>Abre VigiShield e inicia sesión.</li>
+      <li>Ve a <strong>Ajustes</strong> y toca tu nombre arriba (<strong>Perfil</strong>).</li>
+      <li>Al final de la pantalla, toca <strong>Eliminar cuenta</strong>.</li>
+      <li>Confirma con tu contraseña. Si entraste con Apple, elige <strong>Confirmar con Apple</strong>.</li>
+    </ol>
+
+    <h2>2. Desde esta página</h2>
+    <p>Si ya no tienes la aplicación, escribe el correo y la contraseña de tu cuenta.</p>
+  </div>
+
+  <!-- ===================== EN ===================== -->
+  <div data-en>
+    <p>You can delete your account and your data at any time, in any of these three ways. Deletion is
+      permanent and cannot be undone.</p>
+
+    <h2>1. In the app</h2>
+    <ol>
+      <li>Open VigiShield and sign in.</li>
+      <li>Go to <strong>Settings</strong> and tap your name at the top (<strong>Profile</strong>).</li>
+      <li>At the bottom of the screen, tap <strong>Delete account</strong>.</li>
+      <li>Confirm with your password. If you signed in with Apple, choose <strong>Confirm with Apple</strong>.</li>
+    </ol>
+
+    <h2>2. On this page</h2>
+    <p>If you no longer have the app, enter your account's email and password.</p>
+  </div>
+
+  <div class="card">
+    <div id="msg" class="msg" role="status"></div>
+    <form id="form" autocomplete="on">
+      <label for="email"><span data-es>Correo</span><span data-en>Email</span></label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password"><span data-es>Contraseña</span><span data-en>Password</span></label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <label class="check"><input id="confirmo" type="checkbox">
+        <span data-es>Entiendo que se borrarán mi cuenta y mis datos y que no se puede deshacer.</span>
+        <span data-en>I understand that my account and my data will be deleted and that this cannot be undone.</span>
+      </label>
+      <button id="btn" class="peligro" type="submit" disabled>
+        <span data-es>Eliminar mi cuenta</span><span data-en>Delete my account</span></button>
+    </form>
+  </div>
+
+  <div data-es>
+    <p>Las cuentas creadas con <strong>Iniciar sesión con Apple</strong> no tienen contraseña: elimínalas desde la
+      aplicación o por correo.</p>
+
+    <h2>3. Por correo</h2>
+    <p>Escribe a <a href="mailto:contacto@vigishield.app?subject=Eliminar%20mi%20cuenta">contacto@vigishield.app</a>
+      desde el correo de tu cuenta, con el asunto «Eliminar mi cuenta». La eliminaremos en un plazo máximo de
+      30 días y te avisaremos al terminar.</p>
+
+    <h2>Qué se borra</h2>
+    <ul>
+      <li><strong>Si eres el residente principal</strong>, se borra tu hogar entero: tu cuenta (nombre, correo,
+        teléfono, dirección y foto de perfil), las cámaras y sus zonas, los eventos con sus fotos y clips, los
+        rostros autorizados y sus rasgos faciales, la configuración de alertas, las invitaciones y las cuentas
+        de los miembros que invitaste.</li>
+      <li><strong>Si eres un miembro invitado</strong>, se borra solo tu cuenta. El hogar y sus datos siguen
+        siendo del residente principal.</li>
+      <li>Los datos de la cuenta, las fotos y los clips se borran en el momento. Las grabaciones de la validación
+        del proyecto académico, si las hubiera, se borran en un plazo máximo de 30 días.</li>
+    </ul>
+
+    <h2>Qué se conserva</h2>
+    <p>Solo métricas agregadas y anónimas del funcionamiento del sistema (por ejemplo, cuántos eventos se
+      detectaron), que no permiten identificarte, para la investigación de la tesis. Más detalles en la
+      <a href="/privacidad">Política de privacidad</a>.</p>
+  </div>
+
+  <div data-en>
+    <p>Accounts created with <strong>Sign in with Apple</strong> have no password: delete them in the app or
+      by email.</p>
+
+    <h2>3. By email</h2>
+    <p>Write to <a href="mailto:contacto@vigishield.app?subject=Delete%20my%20account">contacto@vigishield.app</a>
+      from your account's email address, with the subject "Delete my account". We will delete it within 30 days
+      at most and let you know when it's done.</p>
+
+    <h2>What is deleted</h2>
+    <ul>
+      <li><strong>If you are the primary resident</strong>, your whole household is deleted: your account (name,
+        email, phone, address and profile photo), the cameras and their zones, events with their photos and
+        clips, authorized faces and their facial features, alert settings, invitations, and the accounts of the
+        members you invited.</li>
+      <li><strong>If you are an invited member</strong>, only your account is deleted. The household and its
+        data remain with the primary resident.</li>
+      <li>Account data, photos and clips are deleted immediately. Recordings from the academic project's
+        validation, if any, are deleted within 30 days at most.</li>
+    </ul>
+
+    <h2>What is kept</h2>
+    <p>Only aggregated, anonymous metrics about how the system works (for example, how many events were
+      detected), which cannot identify you, for the thesis research. More details in the
+      <a href="/privacidad">Privacy policy</a> (Spanish).</p>
+  </div>
+</main>
+<footer><div class="wrap">VigiShield · Proyecto de tesis UPC · <a href="mailto:contacto@vigishield.app">contacto@vigishield.app</a></div></footer>
+
+<script>
+  const API = 'https://api.vigishield.app';
+  const $ = (id) => document.getElementById(id);
+  const form = $('form'), btn = $('btn'), msg = $('msg'), confirmo = $('confirmo');
+  const en = () => document.documentElement.lang === 'en';
+  const t = (es, enTxt) => en() ? enTxt : es;
+
+  function idioma(l) {
+    document.documentElement.lang = l;
+    document.title = l === 'en' ? 'Delete account · VigiShield' : 'Eliminar cuenta · VigiShield';
+    $('idioma').textContent = l === 'en' ? 'Español' : 'English';
+  }
+  const pedido = new URLSearchParams(location.search).get('lang');
+  idioma(pedido === 'en' || (!pedido && !/^es/i.test(navigator.language || 'es')) ? 'en' : 'es');
+  $('idioma').addEventListener('click', () => idioma(en() ? 'es' : 'en'));
+
+  function show(text, ok) { msg.textContent = text; msg.className = 'msg ' + (ok ? 'ok' : 'err'); }
+  confirmo.addEventListener('change', () => { btn.disabled = !confirmo.checked; });
+
+  async function error(r) {
+    try { const d = await r.json(); return d.error || d.message || d.title || ''; } catch (_) { return ''; }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!confirmo.checked) return;
+    const email = $('email').value.trim(), password = $('password').value;
+    if (!email || !password) return show(t('Escribe tu correo y tu contraseña.', 'Enter your email and password.'), false);
+
+    btn.disabled = true;
+    msg.className = 'msg';
+    try {
+      // 1) Iniciar sesión para obtener el token (solo vive en memoria).
+      const r1 = await fetch(API + '/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+      if (!r1.ok) {
+        btn.disabled = false;
+        return show(r1.status === 401 || r1.status === 400
+          ? t('El correo o la contraseña no son correctos. Si creaste la cuenta con Apple, elimínala desde la aplicación o por correo.',
+              'The email or password is incorrect. If you created the account with Apple, delete it in the app or by email.')
+          : t('No se pudo verificar tu cuenta. Inténtalo más tarde o escríbenos.', 'We could not verify your account. Try again later or email us.'), false);
+      }
+      const token = (await r1.json()).token;
+
+      // 2) Borrar la cuenta (el backend vuelve a pedir la contraseña).
+      const r2 = await fetch(API + '/api/auth/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ password: password })
+      });
+      if (!r2.ok) {
+        btn.disabled = false;
+        const d = await error(r2);
+        return show(d || t('No se pudo eliminar la cuenta. Inténtalo más tarde o escríbenos.', 'The account could not be deleted. Try again later or email us.'), false);
+      }
+      const res = await r2.json().catch(() => ({}));
+      form.style.display = 'none';
+      show(res.hogarEliminado
+        ? t('Listo. Se eliminaron tu cuenta y tu hogar, con todos sus datos.', 'Done. Your account and your household were deleted, with all their data.')
+        : t('Listo. Se eliminó tu cuenta.', 'Done. Your account was deleted.'), true);
+    } catch (_) {
+      btn.disabled = false;
+      show(t('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.',
+             'Could not reach the server. Check your connection and try again.'), false);
+    }
+  });
+</script>
+</body>
+</html>
