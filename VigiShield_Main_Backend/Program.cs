@@ -80,6 +80,7 @@ builder.Services.AddScoped<MediaMtxService>();
 builder.Services.AddScoped<CameraService>();
 // Panel de administración (vigishield.app/admin): servicios nuevos, aparte.
 builder.Services.AddScoped<AdminService>();
+builder.Services.AddSingleton<BloqueosService>();
 builder.Services.AddScoped<CuentaService>();
 builder.Services.AddScoped<AppleSignInService>();
 builder.Services.AddScoped<LoginExternoService>();
@@ -136,6 +137,7 @@ if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<VigiShield.Common.Middleware.UltimaActividadMiddleware>();
+app.UseMiddleware<VigiShield.Common.Middleware.BloqueoAdminMiddleware>();
 app.MapControllers();
 
 // Unauthenticated liveness probe for load balancers / monitoring / certbot.

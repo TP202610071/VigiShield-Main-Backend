@@ -96,6 +96,40 @@ namespace VigiShield.Migrations
                     b.ToTable("AuthorizedFaces");
                 });
 
+            modelBuilder.Entity("VigiShield.Domain.Entities.BloqueoAdmin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreadoPor")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Tipo", "Valor")
+                        .IsUnique();
+
+                    b.ToTable("BloqueosAdmin", (string)null);
+                });
+
             modelBuilder.Entity("VigiShield.Domain.Entities.CameraConfig", b =>
                 {
                     b.Property<Guid>("Id")
@@ -255,6 +289,46 @@ namespace VigiShield.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("DispositivosPush", (string)null);
+                });
+
+            modelBuilder.Entity("VigiShield.Domain.Entities.DispositivoVisto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Plataforma")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("PrimeraVez")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UltimaVez")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId");
+
+                    b.HasIndex("Ip");
+
+                    b.HasIndex("UserId", "DeviceId")
+                        .IsUnique();
+
+                    b.ToTable("DispositivosVistos", (string)null);
                 });
 
             modelBuilder.Entity("VigiShield.Domain.Entities.EvidenciaGrabacion", b =>
@@ -567,6 +641,17 @@ namespace VigiShield.Migrations
                 });
 
             modelBuilder.Entity("VigiShield.Domain.Entities.DispositivoPush", b =>
+                {
+                    b.HasOne("VigiShield.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VigiShield.Domain.Entities.DispositivoVisto", b =>
                 {
                     b.HasOne("VigiShield.Domain.Entities.User", "User")
                         .WithMany()
