@@ -125,6 +125,8 @@ public class EventService
 
             // Push a los teléfonos del hogar (APNs en iPhone, FCM en Android).
             if (_push is not null) await _push.EnviarEventoAsync(ev, camera, time);
+            // Riesgo alto: llamada de voz a los números verificados en Twilio.
+            if (ev.RiskLevel >= RiskLevel.High) LlamadasEmergenciaService.Encolar(ev.HouseholdId, SpanishLabel(ev.EventType), camera, time);
         }
 
         return ToDto(ev);

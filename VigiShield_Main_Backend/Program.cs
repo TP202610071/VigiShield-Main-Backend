@@ -81,6 +81,9 @@ builder.Services.AddScoped<CameraService>();
 // Panel de administración (vigishield.app/admin): servicios nuevos, aparte.
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddSingleton<BloqueosService>();
+builder.Services.AddHttpClient("twilio", c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<VigiShield.Infrastructure.Services.TwilioVozService>();
+builder.Services.AddHostedService<LlamadasEmergenciaService>();
 builder.Services.AddScoped<CuentaService>();
 builder.Services.AddScoped<AppleSignInService>();
 builder.Services.AddScoped<LoginExternoService>();
