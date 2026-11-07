@@ -27,6 +27,13 @@ public class TwilioVozService(IHttpClientFactory http, IConfiguration config, IL
 
     private string? Sid => config["Twilio:AccountSid"];
 
+    /// <summary>TwiML de las llamadas en curso, por token de un solo uso.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Twiml, DateTime Vence)> Pendientes = new();
+
+    /// <summary>Lo entrega una sola vez (Twilio lo pide al contestar la llamada).</summary>
+    public static string? TomarTwiml(string token) =>
+        Pendientes.TryRemove(token, out var t) && t.Vence > DateTime.UtcNow ? t.Twiml : null;
+
     public bool Configurado =>
         !string.IsNullOrWhiteSpace(Sid) && !string.IsNullOrWhiteSpace(config["Twilio:ApiKeySid"])
         && !string.IsNullOrWhiteSpace(config["Twilio:ApiKeySecret"]);
@@ -102,10 +109,17 @@ public class TwilioVozService(IHttpClientFactory http, IConfiguration config, IL
         var t = SecurityElement.Escape(texto);
         var twiml = $"<Response><Pause length=\"1\"/><Say language=\"es-MX\" voice=\"Polly.Mia\">{t}</Say>"
                   + $"<Pause length=\"1\"/><Say language=\"es-MX\" voice=\"Polly.Mia\">{t}</Say></Response>";
+        // La cuenta de prueba no acepta el parámetro Twiml: Twilio pide el
+        // TwiML a una URL de un solo uso de este backend (LlamadasController).
+        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
+        foreach (var k in Pendientes.Where(p => p.Value.Vence < DateTime.UtcNow).Select(p => p.Key).ToList())
+            Pendientes.TryRemove(k, out _);
+        Pendientes[token] = (twiml, DateTime.UtcNow.AddMinutes(10));
+        var baseUrl = (config["Twilio:UrlPublica"] ?? "https://api.vigishield.app").TrimEnd('/');
         using var c = Cliente();
         var r = await c.PostAsync("Calls.json", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["To"] = to, ["From"] = _origen!, ["Twiml"] = twiml, ["Timeout"] = "30",
+            ["To"] = to, ["From"] = _origen!, ["Url"] = $"{baseUrl}/api/llamadas/twiml/{token}",
         }));
         if (r.IsSuccessStatusCode) return null;
         var error = await MensajeAsync(r);

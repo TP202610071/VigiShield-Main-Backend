@@ -70,6 +70,19 @@ public class LlamadasController(TwilioVozService twilio, AppDbContext db) : Cont
         return u.Numero is not null && await twilio.QuitarVerificacionAsync(u.Numero) ? NoContent() : NotFound();
     }
 
+    /// <summary>Twilio pide aquí qué decir en la llamada (token de un solo uso, 10 min).</summary>
+    [AllowAnonymous]
+    [HttpGet("twiml/{token}")]
+    [HttpPost("twiml/{token}")]
+    public IActionResult Twiml(string token) =>
+        token == "prueba"
+            ? Content("<Response><Pause length=\"1\"/><Say language=\"es-MX\" voice=\"Polly.Mia\">"
+                + "Esta es una llamada de prueba de VigiShield. Así te avisaremos cuando una cámara detecte un riesgo alto."
+                + "</Say></Response>", "text/xml")
+            : TwilioVozService.TomarTwiml(token) is { } twiml
+            ? Content(twiml, "text/xml")
+            : Content("<Response><Hangup/></Response>", "text/xml");
+
     /// <summary>Llamada de prueba al propio número verificado.</summary>
     [HttpPost("prueba")]
     public async Task<IActionResult> Prueba()
